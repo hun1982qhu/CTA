@@ -1,0 +1,75 @@
+第一步： 进入目标文件夹
+cd D:/期货自动化交易/8-CTA_Development
+需要特别注意的是直接从电脑拷过来的路径的斜杠\要换成/，git才能识别
+
+第二步：初始化
+git init
+
+第三步：切换到目标分支
+git checkout -b 目标分支名 相当于git branch iss53 加 git checkout iss53
+20201116创建的分支名称为：20201116CCI精细化委托管理策略开发 
+主分支的名称为：main
+
+第四步：添加要管理的文件
+git add XXX
+如果要添加文件夹的所有文件，使用命令：git add *
+
+git add -A  提交所有变化
+
+git add -u  提交被修改(modified)和被删除(deleted)文件，不包括新文件(new)
+
+git add .  提交新文件(new)和被修改(modified)文件，不包括被删除(deleted)文件
+
+第五步：提交
+git commit -m "描述文字"
+也可以用 git commit，然后添加更加详细的描述，进入输入界面需要先输入字母i才能进入编辑状态，输入完了之后，按下Esc (退出编辑状态)，接着连按两次大写字母Z 即 shift + zz 
+
+2.1 保存并退出：
+（1）按 Esc 键退出编辑模式，英文模式下输入 :wq ，然后回车(write and quit)。
+
+（2）按 Esc 键退出编辑模式，大写英文模式下输入 ZZ ，然后回车。
+
+
+
+第六步：推送到github
+首先需要在github中建立一个新的代码仓库，名称为CTA_Strategy_Development
+
+然后在clone按钮下找到clone http链接 https://github.com/hun1982qhu/CTA_Strategy_Development.git
+
+然后在git bash中输入命令git clone https://github.com/hun1982qhu/CTA_Strategy_Development.git
+
+然后在 D:/期货自动化交易/8-CTA策略开发中找到名为CTA_Strategy_Development的文件夹
+
+然后将D:/期货自动化交易/8-CTA策略开发中的所有文件及文件夹剪切到CTA_Strategy_Development文件夹中
+
+然后在git bash中输入命令 git push https://github.com/hun1982qhu/CTA_Strategy_Development
+
+最终，成功将所有本地文件及文件夹上传到github
+
+第七步：合并
+git checkout
+
+已经被合并的分支就没有用了，可以删掉
+git branch -d 分支的名字
+
+git mergetool
+
+查看每个分支上最后一次提交的情况用 git branch -v
+
+要同步github和本地电脑上的文件 使用命令 git fetch <remote> 通过fetch命令在本地得到的只是一个从服务器获得的新的分支的指针，并不是一个可以在本地电脑编辑的实体
+
+要在本地建立一个可跟踪的分支git checkout -b <branch> <remote>/<branch> 或者 git checkout --track origin/<branch>
+
+如果本地分支的名字和服务器上的分支的名字完全一致，也可以直接使用git checkout serverfix
+
+要将本地已有的分支设置为远程跟踪的分支，或者切换到其他远程跟踪的分支使用命令 git branch -u origin/serverfix 或者 git branch --set-upstream-to origin/serverfix
+
+查看设置了哪些远程跟踪的分支 git branch -vv
+
+向github推送新的分支 git push <remote> <branch> 或者 git push origin <branch>
+
+git查看各个branch之间的关系图：git log --graph --decorate --oneline --simplify-by-decoration --all
+
+
+
+

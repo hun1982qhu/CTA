@@ -1,0 +1,15 @@
+1. 下载mongodb安装软件 网址：https://www.mongodb.com/try/download/community
+
+2. 下载Robo 3T 网址：https://robomongo.org/
+
+3. 以管理员身份进入cmd
+
+4. 在cmd中进入mongodb安装路径        指令：cd C:\Program Files\MongoDB\Server\4.4\bin
+
+5. 在cmd中创建mongodb服务    指令：mongod --dbpath "C:\Users\黄柠\.vntrader\mongodbdata" --logpath "C:\Users\黄柠\.vntrader\mongodbdata\log\mongodb.log" --install --serviceName "mongobase"
+
+6. 在cmd中启动mongodb   指令：net start MongoDB
+
+7. 在cmd中删除mongodb服务   指令：mongod --dbpath "C:\Users\黄柠\.vntrader\mongodbdata" --logpath "C:\Users\黄柠\.vntrader\mongodbdata\log\mongodb.log" --install --remove "mongobase"
+
+8. 在cmd中停止mongodb  指令：net stop MongoDB
