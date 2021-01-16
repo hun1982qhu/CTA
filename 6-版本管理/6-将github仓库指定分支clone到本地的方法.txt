@@ -1,0 +1,6 @@
+
+git checkout -b dev origin/dev
+
+或者简化为
+
+git checkout dev
