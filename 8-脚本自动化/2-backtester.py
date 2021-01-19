@@ -25,7 +25,7 @@ engine.set_parameters(
     size=1,
     pricetick=0.2,
     capital=1_000_000,
-    mode=BacktestingMode.BAR
+    mode=BacktestingMode.TICK
 )
 engine.add_strategy(CCIStrategy, {})
 #%%
