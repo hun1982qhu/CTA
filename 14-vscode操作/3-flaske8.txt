@@ -1,0 +1,2 @@
+二十六、关于flaske8
+vscode的flaske8智能错误识别插件。默认条件是每保存（ctrl + s）一次，flaske8会运行一次，只能识别错误。

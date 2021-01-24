@@ -1,0 +1,2 @@
+十七、数据库
+vnpy用到的数据库有redis,sqlite,mysql,mangodb。

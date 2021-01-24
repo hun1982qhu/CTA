@@ -1,0 +1,2 @@
+关于Linter
+在使用vscode写代码时，如果出现代码下面有红色波浪线。用ctrl + shift + p，打开相关插件的命令，选Select Linter。Linter是代码错误的智能提示工具。

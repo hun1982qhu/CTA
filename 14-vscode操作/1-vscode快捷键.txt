@@ -1,0 +1,13 @@
+二十一、vscode的各种操作快捷键
+ctrl + \ 分页
+ctrl + j 打开问题展示面板
+ctrl + k, ctrl + 2 折叠所有代码
+ctrl + k, ctrl + 1 进一步折叠所有代码
+Ctrl+K, Ctrl+0 折叠所有代码
+Ctrl+K, Ctrl+J 展开折叠所有代码
+ctrl + / 注释代码
+ctrl + k, ctrl + c 多行注释
+ctrl + k, ctrl + u 多行注释取消
+alt + shift + i 多行操作
+在多行操作模式下，ctrl + 方向键 可以实现光标整体移动
+ctrl + shift + p 显示相关插件的命令
