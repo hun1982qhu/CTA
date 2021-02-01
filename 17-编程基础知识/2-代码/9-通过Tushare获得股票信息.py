@@ -1,5 +1,5 @@
-四、通过Tushare同时获得多只股票信息
-因为Tushare的get命令目前只能一次获取一直股票的信息，为了同时获得多只股票的信息，需要构建一个函数，具体如下：
+# 通过Tushare同时获得多只股票信息
+# 因为Tushare的get命令目前只能一次获取一直股票的信息，为了同时获得多只股票的信息，需要构建一个函数，具体如下：
 
 def multiple_stocks(tickers):
     def data(ticker):
@@ -14,4 +14,4 @@ def multiple_stocks(tickers):
 
 tickers = ['600030', '000001', '600426']
 all_stocks = multiple_stocks(tickers)
-print('通过函数运算同时获得多只股票信息：\n', all_stocks, ‘\n')
+print('通过函数运算同时获得多只股票信息：\n', all_stocks, '\n')

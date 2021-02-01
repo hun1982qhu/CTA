@@ -1,20 +1,20 @@
-五、使用pivot命令实现数据透视功能
+# 使用pivot命令实现数据透视功能
 def multiple_stocks(tickers):
-    def data(ticker):
- 		stocks = ts.get_k_data(ticker, start='2016-01-01', end='2017-07-01')
-        stocks.set_index('date', inplace=True)
-        # 原始数据中日期列里的数据形式上是日期，但并不是数据处理所需要的日期格式-因此需要将index列的日期转换成标准日期格式
-        stocks.index = pd.to_datetime(stocks.index)
-        return stocks
-    datas = map(data, tickers)
-    return pd.concat(datas, keys=tickers, names=['Tickers', 'Date'])
+        def data(ticker):
+                stocks = ts.get_k_data(ticker, start='2016-01-01', end='2017-07-01')
+                stocks.set_index('date', inplace=True)
+                # 原始数据中日期列里的数据形式上是日期，但并不是数据处理所需要的日期格式-因此需要将index列的日期转换成标准日期格式
+                stocks.index = pd.to_datetime(stocks.index)
+                return stocks
+        datas = map(data, tickers)
+        return pd.concat(datas, keys=tickers, names=['Tickers', 'Date'])
 
 
 tickers = ['600030', '000001', '600426']
 all_stocks = multiple_stocks(tickers)
 print('通过函数运算同时获得多只股票信息：\n', all_stocks, '\n')
-通过上述运算获得如下
-通过函数运算同时获得多只股票信息：
+# 通过上述运算获得如下
+# 通过函数运算同时获得多只股票信息：
                        open   close    high     low     volume    code
 Tickers Date                                                         
 600030  2016-01-04  17.905  16.225  17.905  16.169  1960583.0  600030
@@ -51,7 +51,7 @@ reset_index之后的结果：
 [1089 rows x 3 columns] 
 daily_close = close_price.pivot(index='Date', columns='Tickers', values='close')
 print('输出数据透视处理后的daily_close：\n', daily_close, '\n')
-输出数据透视处理后的daily_close：
+# 输出数据透视处理后的daily_close：
  Tickers     000001  600030  600426
 Date                              
 2016-01-04   8.995  16.225   7.518

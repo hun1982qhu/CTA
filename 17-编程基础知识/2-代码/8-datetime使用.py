@@ -15,3 +15,6 @@ e = datetime.strptime(c, "%Y-%m-%d %H:%M:%S.%f")
 f = datetime.strptime(d, "%Y%m%d %H:%M:%S.%f")
 print("e=", e)
 print("f=", f)
+
+millitime = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
+print(millitime)
