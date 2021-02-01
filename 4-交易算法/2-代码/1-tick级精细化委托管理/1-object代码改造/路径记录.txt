@@ -1,0 +1,2 @@
+C:\vnstudio\Lib\site-packages\vnpy\trader
+下的object.py文件

@@ -1,0 +1,2 @@
+C:\vnstudio\Lib\site-packages\vnpy\trader
+下的converter.py文件

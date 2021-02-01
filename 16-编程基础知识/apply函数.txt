@@ -1,2 +1,0 @@
-七、apply函数
-pandas中的apply函数，可以对DataFrame、Series数据进行向量化操作
