@@ -101,10 +101,7 @@ class CCIStrategy(CtaTemplate):
         self.bg.update_bar(bar)
     
     def on_Xmin_bar(self, bar: BarData):
-        """"""
-
-        self.cancel_all()
-        
+        """"""        
         am = self.am
 
         am.update_bar(bar)
@@ -210,7 +207,22 @@ class CCIStrategy(CtaTemplate):
                     self.buy_vt_orderids = self.buy(self.buy_price, self.fixed_size, True)
                     self.buy_price = 0
 
+            if not self.short_vt_orderids:
+                if self.cross_below_100 or self.cross_below_min100:
+                    self.short_vt_orderids = self.short(self.short_price, self.fixed_size, True)
+                    self.short_price = 0
 
+        elif self.pos > 0:
+            if not self.sell_vt_orderids:
+                if self.cci < self.cci_intra_trade * self.sell_multiplier:
+                    self.sell_vt_orderids = self.sell(self.sell_price, abs(self.pos), True)
+                    self.sell_price = 0
+        
+        else:
+            if not self.cover_vt_orderids:
+                if self.cci > self.cci_intra_trade * self.cover_multiplier:
+                    self.cover_vt_orderids = self.cover(self.cover_price, abs(self.pos), True)
+                    self.cover_price = 0
 
     # def on_trade(self, trade: TradeData):
     #     print(trade.direction)
