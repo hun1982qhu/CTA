@@ -75,7 +75,7 @@ plt.title('螺纹钢 CCI策略收益图')
 plt.legend(loc='upper left')
 plt.show()
 #%%
-df_file = pd.ExcelWriter('C:\\Users\\huangning\\Desktop\\期货自动化交易\\8-vnpy编程练习\\rb2010行情数据.xls')
+df_file = pd.ExcelWriter('数据.xls')
 data.to_excel(df_file, '20190901-20200901')
 df_file.save()
 df_file.close()

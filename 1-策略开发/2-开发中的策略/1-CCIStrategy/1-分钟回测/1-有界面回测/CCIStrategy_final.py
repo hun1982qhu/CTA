@@ -61,7 +61,25 @@ class CCIStrategy(CtaTemplate):
         self.am = ArrayManager()  
 
         self.pricetick = self.get_pricetick()
-        
+
+        self.buy_vt_orderids = []
+        self.sell_vt_orderids = []
+        self.short_vt_orderids = []
+        self.cover_vt_orderids = []
+
+        self.buy_price = 0
+        self.sell_price = 0
+        self.short_price = 0
+        self.cover_price = 0
+
+        self.cross_over_100 = None
+        self.cross_below_100 = None
+        self.cross_over_min100 = None
+        self.cross_below_min100 = None
+
+        self.long_entry = 0
+        self.short_entry = 0
+
     def on_init(self):
         """"""
         self.write_log("策略初始化")
@@ -98,36 +116,101 @@ class CCIStrategy(CtaTemplate):
         self.cci1 = cci[-1] + 1000
         self.cci2 = cci[-2] + 1000
 
-        long_entry = bar.close_price + self.pricetick * self.pricetick_multilplier
-        short_entry = bar.close_price - self.pricetick * self.pricetick_multilplier 
+        self.cross_over_100 = (self.cci2 <= 1100 and self.cci1 >= 1100)
+        self.cross_below_100 = (self.cci2 >= 1100 and self.cci1 <= 1100)
+        self.cross_over_min100 = (self.cci2 <= 900 and self.cci1 >= 900)
+        self.cross_below_min100 = (self.cci2 >= 900 and self.cci1 <= 900)
+
+        self.long_entry = bar.close_price + self.pricetick * self.pricetick_multilplier
+        self.short_entry = bar.close_price - self.pricetick * self.pricetick_multilplier 
 
         if self.pos == 0:
             self.cci_intra_trade = self.cci1
 
-            cross_over_100 = (self.cci2 < 1100 and self.cci1 > 1100)
-            cross_below_100 = (self.cci2 > 1100 and self.cci1 < 1100)
-            cross_over_min100 = (self.cci2 < 900 and self.cci1 > 900)
-            cross_below_min100 = (self.cci2 > 900 and self.cci1 < 900)
-
-            if cross_over_100 or cross_over_min100:
-                self.buy(long_entry, self.fixed_size, True)
-            elif cross_below_100 or cross_below_min100:
-                self.short(short_entry, self.fixed_size, True)
+            self.buy_price = self.long_entry
+            self.sell_price = 0
+            self.short_price = self.short_entry
+            self.cover_price = 0
 
         elif self.pos > 0:
             self.cci_intra_trade = max(self.cci_intra_trade, self.cci1)
-            if self.cci1 < self.cci_intra_trade * self.sell_multiplier:
-                self.sell(short_entry, abs(self.pos), True)
-                # print("缓存最高CCI减去当前CCI值：", ((self.cci_intra_trade - self.cci1)/self.cci_intra_trade))
+            
+            self.buy_price = 0
+            self.sell_price = self.short_entry
+            self.short_price = 0
+            self.cover_price = 0
 
         else:
             self.cci_intra_trade = min(self.cci_intra_trade, self.cci1)
-            if self.cci1 > self.cci_intra_trade * self.cover_multiplier:
-                self.cover(long_entry, abs(self.pos), True)
-                # print("当前CCI值减去缓存最高CCI：", ((self.cci1 - self.cci_intra_trade)/self.cci_intra_trade))
 
-    # def on_stop_order(self, stop_order: StopOrder):
-    #     print(stop_order.status)
+            self.buy_price = 0
+            self.sell_price = 0
+            self.short_price = 0
+            self.cover_price = self.long_entry
+        
+        
+        if self.pos == 0:
+            if not self.buy_vt_orderids:
+                if self.cross_over_100 or self.cross_over_min100:
+                    self.buy_vt_orderids = self.buy(self.buy_price, self.fixed_size, True)
+                    self.buy_price = 0
+                else:
+                    for vt_orderid in self.buy_vt_orderids:
+                        self.cancel_order(vt_orderid)
+
+            if not self.short_vt_orderids:
+                if self.cross_below_100 or self.cross_below_min100:
+                    self.short_vt_orderids = self.short(self.short_price, self.fixed_size, True)
+                    self.short_price = 0
+                else:
+                    for vt_orderid in self.short_vt_orderids:
+                        self.cancel_order(vt_orderid)
+
+        elif self.pos > 0:
+            if not self.sell_vt_orderids:
+                if self.cci1 < self.cci_intra_trade * self.sell_multiplier:
+                    self.sell_vt_orderids = self.sell(self.sell_price, abs(self.pos), True)
+                    self.sell_price = 0
+            else:
+                for vt_orderid in self.sell_vt_orderids:
+                    self.cancel_order(vt_orderid)
+
+        else:
+            if not self.cover_vt_orderids:
+                if self.cci1 > self.cci_intra_trade * self.cover_multiplier:
+                    self.cover_vt_orderids = self.cover(self.cover_price, abs(self.pos), True)
+                    self.cover_price = 0
+            else:
+                for vt_orderid in self.cover_vt_orderids:
+                    self.cancel_order(vt_orderid)
+
+        self.put_event()
+                
+
+    def on_stop_order(self, stop_order: StopOrder):
+        """"""
+        # 只处理撤销（CANCELLED）或者触发（TRIGGERED）的停止委托单
+        if stop_order.status == StopOrderStatus.WAITING:
+            return
+
+        # 移除已经结束的停止单委托号
+        for buf_orderids in [
+            self.buy_vt_orderids,
+            self.sell_vt_orderids,
+            self.short_vt_orderids,
+            self.cover_vt_orderids
+        ]:
+            if stop_order.stop_orderid in buf_orderids:
+                buf_orderids.remove(stop_order.stop_orderid)
+
+        # 发出新的委托
+        if self.pos == 0:
+            if not self.buy_vt_orderids:
+                if self.cross_over_100 or self.cross_over_min100:
+                    self.buy_vt_orderids = self.buy(self.buy_price, self.fixed_size, True)
+                    self.buy_price = 0
+
+
 
     # def on_trade(self, trade: TradeData):
     #     print(trade.direction)
