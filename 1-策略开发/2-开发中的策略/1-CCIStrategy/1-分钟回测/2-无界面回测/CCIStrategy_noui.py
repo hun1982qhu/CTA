@@ -1,3 +1,4 @@
+#%%
 from typing import Any, Callable
 from vnpy.app.cta_strategy import (
     CtaTemplate,
@@ -16,19 +17,22 @@ from vnpy.app.cta_strategy.base import BacktestingMode
 from datetime import datetime
 import numpy as np
 import pandas as pd
+from vnpy.trader.ui import create_qapp, QtCore
+from vnpy.trader.database import database_manager
+from vnpy.trader.constant import Exchange, Interval
+from vnpy.chart import ChartWidget, VolumeItem, CandleItem
 from vnpy.trader.constant import Status
 import numpy as np
-
-
+#%%
 class CCIStrategy(CtaTemplate):
     """"""
     author = "Huang Ning"
 
-    bar_window_length = 3
-    cci_window = 2
+    bar_window_length = 6
+    cci_window = 3
     fixed_size = 1
-    sell_multiplier = 0.995
-    cover_multiplier = 0.105
+    sell_multiplier = 0.9
+    cover_multiplier = 1.1
     pricetick_multilplier = 2
     
     cci1 = 0
@@ -214,13 +218,13 @@ class CCIStrategy(CtaTemplate):
 
         elif self.pos > 0:
             if not self.sell_vt_orderids:
-                if self.cci < self.cci_intra_trade * self.sell_multiplier:
+                if self.cci1 < self.cci_intra_trade * self.sell_multiplier:
                     self.sell_vt_orderids = self.sell(self.sell_price, abs(self.pos), True)
                     self.sell_price = 0
         
         else:
             if not self.cover_vt_orderids:
-                if self.cci > self.cci_intra_trade * self.cover_multiplier:
+                if self.cci1 > self.cci_intra_trade * self.cover_multiplier:
                     self.cover_vt_orderids = self.cover(self.cover_price, abs(self.pos), True)
                     self.cover_price = 0
 
@@ -308,3 +312,45 @@ class XminBarGenerator(BarGenerator):
 
         # Cache last bar object
         self.last_bar = bar
+  
+#%%
+engine = BacktestingEngine()
+engine.set_parameters(
+    vt_symbol="rb2010.SHFE",
+    interval="1m",
+    start=datetime(2020, 1, 1),
+    end=datetime(2020,12, 31),
+    rate=0.0001,
+    slippage=2,
+    size=10,
+    pricetick=1,
+    capital=1_000_000,
+    mode=BacktestingMode.BAR
+)
+engine.add_strategy(CCIStrategy, {})
+#%%
+engine.load_data()
+#%%
+engine.run_backtesting()
+#%%
+engine.calculate_result()
+engine.calculate_statistics()
+engine.show_chart()
+#%%
+setting = OptimizationSetting()
+setting.set_target("end_balance")
+setting.add_parameter("bar_window_length", 1, 20, 1)
+setting.add_parameter("cci_window", 3, 10, 1)
+setting.add_parameter("fixed_size", 1, 1, 1)
+setting.add_parameter("sell_multipliaer", 0.80, 0.99, 0.01)
+setting.add_parameter("cover_multiplier", 1.01, 1.20, 0.01)
+setting.add_parameter("pricetick_multiplier", 1, 5, 1)
+#%%
+# result1 = engine.run_optimization(setting, output=True)
+# print(result1[1])
+#%%
+# print(result1[2])
+#%%
+# print(result1[15])
+
+# %%
