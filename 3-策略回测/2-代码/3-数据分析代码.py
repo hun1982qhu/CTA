@@ -217,3 +217,68 @@ def growth_analysis(df: DataFrame = None):
     
 growth_analysis(original)
 # %%
+index_3to1 = ["ATR","ADX","CCI"]
+index_1to1 = ["STDDEV","SMA"]
+index_2to2 = ["AROON"]
+index_2to1 = ["AROONOSC"]
+index_4to1 = ["BOP"]
+
+window_index = 14
+
+def calculate_index(self, df: DataFrame = None):
+    """"""
+    output("第七步：计算相关技术指标，返回DataFrame\n")
+
+    if index_1to1:
+        for i in index_1to1:
+            func = getattr(talib, i)
+            df[i] = func(
+                np.array(df["close"]), 
+                window_index
+            )
+
+    if index_3to1:
+        for i in index_3to1:
+            func = getattr(talib, i)
+            df[i] = func(        
+                np.array(df["high"]),
+                np.array(df["low"]),
+                np.array(df["close"]),
+                window_index
+            )
+            
+    if index_2to2:
+        for i in index_2to2:
+            func = getattr(talib, i)
+            result_down, result_up = func(
+                np.array(df["high"]),
+                np.array(df["low"]),
+                window_index
+            )
+            up = i + "_UP"
+            down = i + "_DOWN"
+            df[up] = result_up
+            df[down] = result_down
+    
+    if index_2to1:
+        for i in index_2to1:
+            func = getattr(talib, i)
+            df[i] = func(
+                np.array(df["high"]),
+                np.array(df["low"]),
+                window_index
+            )
+
+    if index_4to1:
+        for i in index_4to1:
+            func = getattr(talib, i)
+            df[i] = func(  
+                np.array(df["open"]),      
+                np.array(df["high"]),
+                np.array(df["low"]),
+                np.array(df["close"]),
+            )             
+    return df
+
+calculate_index(original)
+# %%
