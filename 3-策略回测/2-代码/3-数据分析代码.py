@@ -11,7 +11,7 @@ from pandas import DataFrame
 import numpy as np
 from numpy import array
 from pathlib import PosixPath,Path
-import xlsxwriter。
+import xlsxwriter
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 from matplotlib import style
@@ -218,7 +218,7 @@ def growth_analysis(df: DataFrame = None):
 growth_analysis(original)
 # %%
 index_3to1 = ["ATR","ADX","CCI"]
-index_1to1 = ["STDDEV","SMA"]
+index_1to1 = ["STDDEV", "SMA"]
 index_2to2 = ["AROON"]
 index_2to1 = ["AROONOSC"]
 index_4to1 = ["BOP"]
@@ -232,10 +232,7 @@ def calculate_index(self, df: DataFrame = None):
     if index_1to1:
         for i in index_1to1:
             func = getattr(talib, i)
-            df[i] = func(
-                np.array(df["close"]), 
-                window_index
-            )
+            df[i] = func(np.array(df["close"]), window_index)
 
     if index_3to1:
         for i in index_3to1:
