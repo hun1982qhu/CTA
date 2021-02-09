@@ -217,10 +217,25 @@ def growth_analysis(df: DataFrame = None):
     
 growth_analysis(original)
 #%%
-for i in ["STDDEV", "SMA"]:
-    func = getattr(talib, i)
-    original[i] = func(np.array(original["close"]), 14)
+index_3to1 = ["ATR","ADX","CCI"]
+index_1to1 = ["STDDEV", "SMA"]
+index_2to2 = ["AROON"]
+index_2to1 = ["AROONOSC"]
+index_4to1 = ["BOP"]
 
-print(original["STDDEV"])
+def calculate_index(df: DataFrame=None):
+    """"""
+    output("第七步：计算相关技术指标，返回DataFrame\n")
+
+    
+    if index_1to1:
+        for i in index_1to1:
+            func = getattr(talib, i)
+            df[i] = func(np.array(df["close"]), 14)
+            print(df[i])
+
+calculate_index(original)
+
+# print(original["SMA"])
 
 # %%

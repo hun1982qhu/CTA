@@ -1,0 +1,4 @@
+一、Python 安装模块的命令
+1. Sudo python3 -m pip install ….
+例：sudo python3 -m pip install -U matplotlib
+2. pip3 install 待验证

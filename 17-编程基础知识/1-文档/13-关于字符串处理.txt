@@ -1,0 +1,4 @@
+字符串拆分用 split(‘x’) 其中x是用于拆分字符串的标识，x也可以是空格
+str.split(‘’)
+str().replace()
+

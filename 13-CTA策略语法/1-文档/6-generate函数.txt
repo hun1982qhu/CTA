@@ -1,0 +1,2 @@
+二十七、关于def generate(self)
+BarGenerator中的def generate(self)函数是专门为了应对郑商所收盘数据不全的问题而写的函数。

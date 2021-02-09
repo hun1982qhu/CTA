@@ -1,2 +1,0 @@
-五十三、CtaTemplate的参数和变量
-CtaTemplate的参数和变量只能是int、float、str、bool四种值类型。

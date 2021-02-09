@@ -1,0 +1,3 @@
+五十一、get_pricetick函数
+在写超价下单指令时，可以写成
+buy_price = 触发价格 + a * get_pricetick
