@@ -10,4 +10,4 @@ import time
 start = time.time()
 # 待测试的代码
 end = time.time()
-print('Running time: {} Seconds’.format(end-start))
+print(f"Running time: {end-start} Seconds")

@@ -25,13 +25,13 @@ class CCIStrategy(CtaTemplate):
     """"""
     author = "Huang Ning"
 
-    bar_window_length = 2
+    bar_window_length = 3
     fixed_size = 1
-    pricetick_multilplier = 2
+    pricetick_multilplier = 7
     fastk_period = 9
-    slowk_period = 3
+    slowk_period = 5
     slowk_matype = 0
-    slowd_period = 3
+    slowd_period = 5
     slowd_matype = 0
     
     k1 = 0

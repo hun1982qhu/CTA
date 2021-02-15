@@ -18,6 +18,7 @@ from datetime import datetime
 import numpy as np
 import pandas as pd
 import talib
+import time
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 from matplotlib import style
@@ -387,6 +388,7 @@ class XminBarGenerator(BarGenerator):
         self.last_bar = bar
   
 #%%
+start = time.time()
 engine = BacktestingEngine()
 engine.set_parameters(
     vt_symbol="rb2010.SHFE",
@@ -408,6 +410,9 @@ engine.run_backtesting()
 #%%
 engine.calculate_result()
 engine.calculate_statistics()
+# 待测试的代码
+end = time.time()
+print(f"Running time: {(end-start)} Seconds")
 engine.show_chart()
 #%%
 # setting = OptimizationSetting()
