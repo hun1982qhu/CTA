@@ -1,4 +1,3 @@
-#%%
 from typing import Any, Callable
 from vnpy.app.cta_strategy import (
     CtaTemplate,
@@ -17,29 +16,28 @@ from vnpy.app.cta_strategy.base import BacktestingMode
 from datetime import datetime
 import numpy as np
 import pandas as pd
-from vnpy.trader.ui import create_qapp, QtCore
-from vnpy.trader.database import database_manager
-from vnpy.trader.constant import Exchange, Interval
-from vnpy.chart import ChartWidget, VolumeItem, CandleItem
 from vnpy.trader.constant import Status
 import numpy as np
-#%%
+
+
 class CCIStrategy(CtaTemplate):
     """"""
     author = "Huang Ning"
 
-    bar_window_length = 6
+    bar_window_length = 20
     cci_window = 3
     fixed_size = 1
-    sell_multiplier = 0.9
-    cover_multiplier = 1.1
+    sell_multiplier = 0.96
+    cover_multiplier = 1.01
     pricetick_multilplier = 2
     
     cci1 = 0
     cci2 = 0
-    cci_intra_trade = 0
+    intra_trade_high = 0
+    intra_trade_low = 0
 
     parameters = [
+        "bar_window_length",
         "cci_window",
         "fixed_size",
         "sell_multiplier",
@@ -114,42 +112,42 @@ class CCIStrategy(CtaTemplate):
 
         cci = am.cci(self.cci_window, True)
 
-        self.cci1 = cci[-1] + 1000
-        self.cci2 = cci[-2] + 1000
+        self.cci1 = cci[-1]
+        self.cci2 = cci[-2]
 
-        self.cross_over_100 = (self.cci2 <= 1100 and self.cci1 >= 1100)
-        self.cross_below_100 = (self.cci2 >= 1100 and self.cci1 <= 1100)
-        self.cross_over_min100 = (self.cci2 <= 900 and self.cci1 >= 900)
-        self.cross_below_min100 = (self.cci2 >= 900 and self.cci1 <= 900)
-
-        self.long_entry = bar.close_price + self.pricetick * self.pricetick_multilplier
-        self.short_entry = bar.close_price - self.pricetick * self.pricetick_multilplier 
+        self.cross_over_100 = (self.cci2 <= 100 and self.cci1 >= 100)
+        self.cross_below_100 = (self.cci2 >= 100 and self.cci1 <= 100)
+        self.cross_over_min100 = (self.cci2 <= -100 and self.cci1 >= -100)
+        self.cross_below_min100 = (self.cci2 >= -100 and self.cci1 <= -100)
 
         if self.pos == 0:
-            self.cci_intra_trade = self.cci1
+            self.intra_trade_high = bar.high_price
+            self.intra_trade_low = bar.low_price
 
-            self.buy_price = self.long_entry
+            self.buy_price = bar.close_price + self.pricetick * self.pricetick_multilplier
             self.sell_price = 0
-            self.short_price = self.short_entry
+            self.short_price = bar.close_price - self.pricetick * self.pricetick_multilplier
             self.cover_price = 0
 
         elif self.pos > 0:
-            self.cci_intra_trade = max(self.cci_intra_trade, self.cci1)
-            
+            self.intra_trade_high = max(self.intra_trade_high, bar.high_price)
+            self.intra_trade_low = bar.low_price
+
             self.buy_price = 0
-            self.sell_price = self.short_entry
+            self.sell_price = self.intra_trade_high * self.sell_multiplier
             self.short_price = 0
             self.cover_price = 0
 
         else:
-            self.cci_intra_trade = min(self.cci_intra_trade, self.cci1)
+            self.intra_trade_low = min(self.intra_trade_low, bar.low_price)
+            self.intra_trade_high = bar.high_price
 
             self.buy_price = 0
             self.sell_price = 0
             self.short_price = 0
-            self.cover_price = self.long_entry
-        
-        
+            self.cover_price = self.intra_trade_low * self.cover_multiplier
+
+
         if self.pos == 0:
             if not self.buy_vt_orderids:
                 if self.cross_over_100 or self.cross_over_min100:
@@ -169,7 +167,7 @@ class CCIStrategy(CtaTemplate):
 
         elif self.pos > 0:
             if not self.sell_vt_orderids:
-                if self.cci1 < self.cci_intra_trade * self.sell_multiplier:
+                if self.cross_below_100 or self.cross_below_min100:
                     self.sell_vt_orderids = self.sell(self.sell_price, abs(self.pos), True)
                     self.sell_price = 0
             else:
@@ -178,7 +176,7 @@ class CCIStrategy(CtaTemplate):
 
         else:
             if not self.cover_vt_orderids:
-                if self.cci1 > self.cci_intra_trade * self.cover_multiplier:
+                if self.cross_over_100 or self.cross_over_min100:
                     self.cover_vt_orderids = self.cover(self.cover_price, abs(self.pos), True)
                     self.cover_price = 0
             else:
@@ -218,13 +216,13 @@ class CCIStrategy(CtaTemplate):
 
         elif self.pos > 0:
             if not self.sell_vt_orderids:
-                if self.cci1 < self.cci_intra_trade * self.sell_multiplier:
+                if self.cross_below_100 or self.cross_below_min100:
                     self.sell_vt_orderids = self.sell(self.sell_price, abs(self.pos), True)
                     self.sell_price = 0
         
         else:
             if not self.cover_vt_orderids:
-                if self.cci1 > self.cci_intra_trade * self.cover_multiplier:
+                if self.cross_over_100 or self.cross_over_min100:
                     self.cover_vt_orderids = self.cover(self.cover_price, abs(self.pos), True)
                     self.cover_price = 0
 
@@ -312,45 +310,3 @@ class XminBarGenerator(BarGenerator):
 
         # Cache last bar object
         self.last_bar = bar
-  
-#%%
-engine = BacktestingEngine()
-engine.set_parameters(
-    vt_symbol="rb2010.SHFE",
-    interval="1m",
-    start=datetime(2020, 1, 1),
-    end=datetime(2020,12, 31),
-    rate=0.0001,
-    slippage=2,
-    size=10,
-    pricetick=1,
-    capital=1_000_000,
-    mode=BacktestingMode.BAR
-)
-engine.add_strategy(CCIStrategy, {})
-#%%
-engine.load_data()
-#%%
-engine.run_backtesting()
-#%%
-engine.calculate_result()
-engine.calculate_statistics()
-engine.show_chart()
-#%%
-setting = OptimizationSetting()
-setting.set_target("end_balance")
-setting.add_parameter("bar_window_length", 1, 20, 1)
-setting.add_parameter("cci_window", 3, 10, 1)
-setting.add_parameter("fixed_size", 1, 1, 1)
-setting.add_parameter("sell_multipliaer", 0.80, 0.99, 0.01)
-setting.add_parameter("cover_multiplier", 1.01, 1.20, 0.01)
-setting.add_parameter("pricetick_multiplier", 1, 5, 1)
-#%%
-# result1 = engine.run_optimization(setting, output=True)
-# print(result1[1])
-#%%
-# print(result1[2])
-#%%
-# print(result1[15])
-
-# %%
