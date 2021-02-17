@@ -12,6 +12,7 @@ order1.vt_symbol
 order1.status
 order1.gateway_name
 order1.orderid
+order1.datetime
 order1.status = Status.ALLTRADED
 order1.status = Status.CANCELLED
 order1.status = Status.PARTTRADED
@@ -38,6 +39,8 @@ trade_data1.gateway_name
 trade_data1.price
 trade_data1.volume
 trade_data1.datetime
+trade_data1.orderid
+trade_data1.vt_orderid
 
 postiondata1 = PositionData
 postiondata1.frozen
