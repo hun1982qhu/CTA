@@ -32,7 +32,7 @@ class CCIStrategy(CtaTemplate):
     """"""
     author = "Huang Ning"
 
-    bar_window_length = 20
+    bar_window_length = 3
     fixed_size = 10
     pricetick_multilplier = 7
     fastk_period = 9
@@ -106,7 +106,7 @@ class CCIStrategy(CtaTemplate):
     def on_init(self):
         """"""
         self.write_log("策略初始化")
-        self.load_bar(1)
+        self.load_bar(10)
 
     def on_start(self):
         """"""
@@ -123,11 +123,13 @@ class CCIStrategy(CtaTemplate):
 
     def on_bar(self, bar: BarData):
         self.bg.update_bar(bar)
-        print(bar.datetime)
+        # if bar.datetime.time() == time(10, 14):
+        # if bar.datetime.hour == 10 and bar.datetime.minute == 14:
+        # print(bar.datetime)
         
     def on_Xmin_bar(self, bar: BarData):
         """"""
-        # print(bar.datetime)           
+        print(bar.datetime)           
                 
     def on_stop_order(self, stop_order: StopOrder):
         """"""
@@ -184,7 +186,7 @@ class XminBarGenerator(BarGenerator):
         """
         Update 1 minute bar into generator
         """
-        # If not inited, creaate window bar object
+        # If not inited, create window bar object
         if not self.window_bar:
             # Generate timestamp for bar data
             if self.interval == Interval.MINUTE:
@@ -220,11 +222,13 @@ class XminBarGenerator(BarGenerator):
             # x-minute bar
             # if not (bar.datetime.minute + 1) % self.window:
             #     finished = True
-            self.interval_count += 1
 
+            self.interval_count += 1
             if not self.interval_count % self.window:
                 finished = True
                 self.interval_count = 0
+            
+            
             
         elif self.interval == Interval.HOUR:
             if self.last_bar:
@@ -259,7 +263,7 @@ engine.set_parameters(
     vt_symbol="rb2010.SHFE",
     interval="1m",
     start=datetime(2019, 10, 15),
-    end=datetime(2019,10,25),
+    end=datetime(2020,10,15),
     rate=0.0001,
     slippage=2,
     size=10,

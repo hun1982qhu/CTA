@@ -1,3 +1,4 @@
+#%%
 from datetime import datetime
 
 from vnpy.trader.object import HistoryRequest
@@ -8,10 +9,10 @@ from vnpy.trader.setting import SETTINGS
 
 
 interval = Interval.MINUTE
-symbol = "IF888"
-exchange = Exchange.CFFEX
+symbol = "RB2010"
+exchange = Exchange.SHFE
 
-start = datetime(2020, 1, 1)
+start = datetime(2019, 10, 17)
 
 
 
@@ -34,4 +35,5 @@ req = HistoryRequest(
 
 data =  rqdata_client.query_history(req)
 
-print(data)
+for i in data:
+    print(i.datetime)
