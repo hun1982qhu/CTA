@@ -11,9 +11,10 @@ from vnpy.app.cta_strategy import (
 from vnpy.app.cta_strategy.base import StopOrderStatus, BacktestingMode
 from vnpy.app.cta_strategy.backtestingHN import BacktestingEngine, OptimizationSetting
 from vnpy.trader.object import BarData, TickData
-from vnpy.trader.constant import Interval, Offset, Direction, Exchange
+from vnpy.trader.constant import Interval, Offset, Direction, Exchange, Status
 import numpy as np
 import pandas as pd
+from datetime import time as time1
 from datetime import datetime
 import time
 import talib
@@ -103,31 +104,6 @@ class CCIStrategy(CtaTemplate):
         self.long_stop_orders = []
         self.short_stop_orders = []
 
-        # self.slowk = []
-        # self.slowd = []
-        # self.slowj = []
-
-        # self.original = pd.DataFrame()
-        
-        # self.bo = []
-        # self.bc = []
-        # self.bh = []
-        # self.bl = []
-        # self.bt = []
-
-        # self.sd_rec = pd.DataFrame()
-        # self.sd_vtid = []
-        # self.sd_id = []
-        # self.sd_time = []
-        # self.sd_price = []
-        
-        # self.td_rec = pd.DataFrame()
-        # self.td_id = []
-        # self.td_time = []
-        # self.td_price = []        
-        # self.td_vtid = []
-        # self.td_orderid = []
-
         self.stoporder_count1 = 0
         self.stoporder_count2 = 0
         self.stoporder_count3 = 0
@@ -142,25 +118,13 @@ class CCIStrategy(CtaTemplate):
         self.cancel_count3 = 0
         self.cancel_count4 = 0
 
-        self.sell_orderid: str = ""
-
-        self.sell_count = 0
-
         self.waiting_count = 0
         self.cancelled_count = 0
         self.triggered_count = 0
 
         self.bar = None
 
-        self.timelist = []
-
-        self.list = []
-
-        self.bar_test = False
-        self.bar_count = 0
-
-        self.stop_order_removelist = []
-        self.price349 = 0  
+        self.ordercount = 0
 
     def on_init(self):
         """"""
@@ -173,116 +137,97 @@ class CCIStrategy(CtaTemplate):
 
     def on_stop(self):
         """"""
-        # self.original["k"] = self.k[-300:]
-        # self.original["d"] = self.d[-300:]
-        # self.original["j"] = self.j[-300:]
-        # self.original["bo"] = self.bo
-        # self.original["bc"] = self.bc
-        # self.original["bh"] = self.bh
-        # self.original["bl"] = self.bl
-        # self.original.index = self.bt
-
-        # self.sd_rec.index = self.sd_id
-        # self.sd_rec["sd_price"] = self.sd_price
-        # print(self.sd_rec)
-
-        # plt.figure(figsize=(20, 8))
-        # plt.plot(self.original["k"], color="r")
-        # plt.plot(self.original["d"], color="b")
-        # plt.plot(self.original["j"], color="y")
-        # plt.plot(self.original["bo"], color="r")
-        # plt.plot(self.original["bc"], color="b")
-        # plt.plot(self.original["bh"], color="y")
-        # plt.plot(self.original["bl"], color="g")
-        # plt.plot(self.sd_rec["sd_price"], color="r")
-        # plt.legend()
-        # plt.show()
-
-        # print(self.original[["bo", "bc", "bh", "bl"]].tail())
-        # print(self.original.index)
-        # print(self.original.iloc[[0, 1, 3]])
-        # print(self.original.loc[:, ["bo"]])
-        # print(self.original.iloc[:, [1, 2]])
-        # print(self.original.loc["2019-10-16 14:12:00+08:00", "bo"])
-        # print(self.original.iloc[42, 0])
-        # print(self.original.iloc[[0, 2, 80], [0, 1]])
         self.write_log("策略停止")
+        print(f"self.ordercount:{self.ordercount}")
         # print(self.long_diff_list)
         # print(self.short_diff_list)
-        print(f"long_stop_orders\t长度{len(self.long_stop_orders)}")
-        print(f"short_stop_orders\t长度{len(self.short_stop_orders)}")
-        print(f"STOP.349出现的次数为:{self.short_stop_orders.count('STOP.349')}")
-        myset = set(self.short_stop_orders)
-        print(len(myset))
-        errorlist = []
-        for item in myset:
-            # print(f"{item}出现了{self.short_stop_orders.count(item)}次")
-            if self.short_stop_orders.count(item) > 3:
-                errorlist.append(str(item))
-        print(f"errorlist:{errorlist}")
-        for i in errorlist:
-            if i in self.stop_order_removelist:
-                print(i)
 
-        # print(f"timelist:{self.timelist}") 
-        # print(f"self.list的长度{len(self.list)}")
-        # print(f"timelist的长度{len(self.timelist)}")               
-        print(f"在on_xmin_bar下的buy_stop_order:              {self.stoporder_count1}")
-        print(f"在on_xmin_bar下取消buy_stop_order的次数:       {self.cancel_count1}\n")
-        print(f"在on_xmin_bar下的short_stop_order:            {self.stoporder_count2}")
-        print(f"在on_xmin_bar下取消short_stop_order的次数:     {self.cancel_count2}\n")
-        print(f"在on_xmin_bar下的sell_stop_order:             {self.stoporder_count3}")
-        print(f"在on_xmin_bar下取消sell_stop_order的次数:      {self.cancel_count3}\n")
-        print(f"在on_xmin_bar下的cover_stop_order:            {self.stoporder_count4}")
-        print(f"在on_xmin_bar下取消cover_stop_order的次数:     {self.cancel_count4}\n")
-        print(f"在on_stop_order下的buy_stop_order:            {self.stoporder_count5}")
-        print(f"在on_stop_order下的short_stop_order:          {self.stoporder_count6}")
-        print(f"在on_stop_order下的sell_stop_order:           {self.stoporder_count7}")
-        print(f"在on_stop_order下的cover_stop_order:          {self.stoporder_count8}")
-        # print(f"self.sell_count:{self.sell_count}")
-        print(f"self.waiting_count:{self.waiting_count}")
-        print(f"self.cancelled_count:{self.cancelled_count}")
-        print(f"self.triggered_count:{self.triggered_count}")
-        print(f"STOP.349的价格为:{self.price349}")
+        # print(f"long_stop_orders:{self.long_stop_orders}\t长度{len(self.long_stop_orders)}")
+        # print(f"short_stop_orders:{self.short_stop_orders}\t长度{len(self.short_stop_orders)}")
+
+        # myset = set(self.short_stop_orders)
+        # print(len(myset))
+        # errorlist = []
+        # for item in myset:
+            # print(f"{item}出现了{self.short_stop_orders.count(item)}次")
+            # if self.short_stop_orders.count(item) > 3:
+            #     errorlist.append(str(item))
+        # print(f"errorlist:{errorlist}")
+           
+        # print(f"在on_xmin_bar下的buy_stop_order:              {self.stoporder_count1}")
+        # print(f"在on_xmin_bar下取消buy_stop_order的次数:       {self.cancel_count1}\n")
+        # print(f"在on_xmin_bar下的short_stop_order:            {self.stoporder_count2}")
+        # print(f"在on_xmin_bar下取消short_stop_order的次数:     {self.cancel_count2}\n")
+        # print(f"在on_xmin_bar下的sell_stop_order:             {self.stoporder_count3}")
+        # print(f"在on_xmin_bar下取消sell_stop_order的次数:      {self.cancel_count3}\n")
+        # print(f"在on_xmin_bar下的cover_stop_order:            {self.stoporder_count4}")
+        # print(f"在on_xmin_bar下取消cover_stop_order的次数:     {self.cancel_count4}\n")
+        # print(f"在on_stop_order下的buy_stop_order:            {self.stoporder_count5}")
+        # print(f"在on_stop_order下的short_stop_order:          {self.stoporder_count6}")
+        # print(f"在on_stop_order下的sell_stop_order:           {self.stoporder_count7}")
+        # print(f"在on_stop_order下的cover_stop_order:          {self.stoporder_count8}")
+
+        # print(f"self.waiting_count:{self.waiting_count}")
+        # print(f"self.cancelled_count:{self.cancelled_count}")
+        # print(f"self.triggered_count:{self.triggered_count}")
+
         # print(f"self.cta_engine.stop_orders:{self.cta_engine.stop_orders}\n\n长度为{len(self.cta_engine.stop_orders)}")
-        print("策略停止")
         # print(f"看多委托未成交次数为{self.long_untraded}")
         # print(f"stop_order.price - long_cross_price平均值：{np.mean(self.long_diff_list)}")
         # print(f"看空委托未成交次数为{self.short_untraded}")
         # print(f"short_cross_price - stop_order.price：{np.mean(self.short_diff_list)}")
+
+        print("策略停止")
         
     def on_tick(self, tick: TickData):
         """"""
         self.bg.update_tick(tick)
 
     def on_bar(self, bar: BarData):
+        """"""
+
+        # print(f"active_stop_orders:{self.cta_engine.active_stop_orders}")
+        active_stop_orders = self.cta_engine.active_stop_orders
+
+        if active_stop_orders:
+            stop_orderid = list(active_stop_orders.keys())[0]
+            stop_order = list(active_stop_orders.values())[0]
+
+            if stop_order.direction == Direction.LONG and stop_order.offset == Offset.OPEN:
+                self.cancel_order(stop_orderid)
+                self.buy(bar.close_price, self.fixed_size, True)
+            
+            elif stop_order.direction == Direction.SHORT and stop_order.offset == Offset.OPEN:
+                self.cancel_order(stop_orderid)
+                self.short(bar.close_price, self.fixed_size, True)
+            
+            elif stop_order.direction == Direction.LONG and stop_order.offset == Offset.CLOSE:
+                self.cancel_order(stop_orderid)
+                self.sell(bar.close_price, self.fixed_size, True)
+
+            elif stop_order.direction == Direction.SHORT and stop_order.offset == Offset.CLOSE:
+                self.cancel_order(stop_orderid)
+                self.cover(bar.close_price, self.fixed_size, True)
+
         self.bg.update_bar(bar)
+
+            # print(f"stop_ordersid:{stop_orderid}")
+            # print(f"stop_orders:{stop_order}")
         
     def on_Xmin_bar(self, bar: BarData):
-        """"""        
-        # for stop_order in list(self.cta_engine.active_stop_orders.values()):
-        #     print(f"stop_order展示:{stop_order}")
-        self.bar = bar
-        if bar.close_price == 3690.0:
-            print(f"当bar.close_price=3690的时候，self.pos为:{self.pos}")
+        """"""
 
-        # if self.bar == None:
-        #     self.bar = bar
-
-        # timedelta = bar.datetime.minute - self.bar.datetime.minute
-
-        # if timedelta > 3:
-        #     self.timelist.append(self.bar.datetime.strftime("%Y-%m-%d %H:%M:%S"))
-        #     self.timelist.append(bar.datetime.strftime("%Y-%m-%d %H:%M:%S"))
+        print(bar.datetime)
 
         am = self.am
 
         am.update_bar(bar)
         if not am.inited:
-            self.write_log(f"当前bar数量为：{str(self.am.count)}, 还差{str(self.am.size - self.am.count)}条")
+            # self.write_log(f"当前bar数量为：{str(self.am.count)}, 还差{str(self.am.size - self.am.count)}条")
+            # print(f"当前bar数量为：{str(self.am.count)}, 还差{str(self.am.size - self.am.count)}条")
             return
         
-        self.slowk, self.slowd, self.slowj = am.kdj(
+        self.slowk, self.slowd, self.slowj = am.kdj_wa(
             self.fastk_period,
             self.slowk_period,
             self.slowk_matype,
@@ -330,8 +275,6 @@ class CCIStrategy(CtaTemplate):
             if not self.buy_vt_orderids:
                 if self.d1 > 80 and self.cross_over:
                     self.buy_vt_orderids = self.buy(self.buy_price, self.fixed_size, True)
-                    if 'STOP.349' in self.buy_vt_orderids:
-                        print("在1这")
                     self.stoporder_count1 += 1
                     self.vt_count += 1
                     # print(f"第{self.vt_count}次委托\t委托时间：{self.cta_engine.datetime}\t开多仓委托：{self.buy_vt_orderids}")
@@ -341,22 +284,15 @@ class CCIStrategy(CtaTemplate):
                     self.cancel_order(vt_orderid)
                     self.cancel_count1 += 1
                    
-
             if not self.short_vt_orderids:
                 if self.d1 < 20 and self.cross_below:
                     self.short_vt_orderids = self.short(self.short_price, self.fixed_size, True)
-                    if 'STOP.349' in self.short_vt_orderids:
-                        print("在2这")
                     self.stoporder_count2 += 1
                     self.vt_count += 1
                     # print(f"第{self.vt_count}次委托\t委托时间：{self.cta_engine.datetime}\t开空仓委托：{self.short_vt_orderids}")
                     self.short_price = 0       
             else:
                 for vt_orderid in self.short_vt_orderids:
-                    if vt_orderid == "STOP.349":
-                        print(vt_orderid)
-                        print("349号停止单此时被取消了")
-                        print(f"此时的self.pos为:{self.pos}")
                     self.cancel_order(vt_orderid)
                     self.cancel_count2 += 1
 
@@ -364,10 +300,7 @@ class CCIStrategy(CtaTemplate):
             if not self.sell_vt_orderids:
                 if self.d1 > 80 and self.cross_below:
                     self.sell_vt_orderids = self.sell(self.sell_price, abs(self.pos), True)
-                    if 'STOP.349' in self.sell_vt_orderids:
-                        print("在3这")
                     self.stoporder_count3 += 1
-                    self.sell_orderid = self.sell_vt_orderids[0]
                     self.vt_count += 1
                     # print(f"第{self.vt_count}次委托\t委托时间：{self.cta_engine.datetime}\t平多仓委托：{self.sell_vt_orderids}")
                     self.sell_price = 0      
@@ -380,8 +313,6 @@ class CCIStrategy(CtaTemplate):
             if not self.cover_vt_orderids:
                 if self.d1 < 20 and self.cross_over:
                     self.cover_vt_orderids = self.cover(self.cover_price, abs(self.pos), True)
-                    if 'STOP.349' in self.cover_vt_orderids:
-                        print("在4这")
                     self.stoporder_count4 += 1
                     self.vt_count += 1
                     # print(f"第{self.vt_count}次委托\t委托时间：{self.cta_engine.datetime}\t平空仓委托：{self.cover_vt_orderids}")
@@ -395,19 +326,17 @@ class CCIStrategy(CtaTemplate):
                 
     def on_stop_order(self, stop_order: StopOrder):
         """"""
-        # self.sd_id.append(stop_order.stop_orderid)
-        # self.sd_price.append(stop_order.price)
 
-        # 只处理撤销（CANCELLED）或者触发（TRIGGERED）的停止委托单
+        # if stop_order.status == StopOrderStatus.WAITING:
+        #     self.waiting_count += 1
+        # if stop_order.status == StopOrderStatus.CANCELLED:
+        #     self.cancelled_count += 1
+        # if stop_order.status == StopOrderStatus.TRIGGERED:
+        #     print(f"triggered:{stop_order.offset}{stop_order.direction}")
+        #     self.triggered_count += 1
+
+        # 只处理撤销（CANCELLED）或者触发（TRIGGERED）的停止委托单 
         if stop_order.status == StopOrderStatus.WAITING:
-            self.waiting_count += 1
-        if stop_order.status == StopOrderStatus.CANCELLED:
-            self.cancelled_count += 1
-        if stop_order.status == StopOrderStatus.TRIGGERED:
-            print(f"triggered:{stop_order.offset}{stop_order.direction}")
-            self.triggered_count += 1
-
-        if stop_order.status == StopOrderStatus.WAITING: # or stop_order.status == StopOrderStatus.TRIGGERED:
             print(f"还在waiting状态的stop_order:{stop_order.stop_orderid}")
             return
 
@@ -419,16 +348,17 @@ class CCIStrategy(CtaTemplate):
             self.cover_vt_orderids
         ]:
             if stop_order.stop_orderid in buf_orderids:
-                self.stop_order_removelist.append(stop_order.stop_orderid)
                 buf_orderids.remove(stop_order.stop_orderid)
 
+    def on_trade(self, trade: TradeData):
+        """
+        Callback of new trade data update.
+        """
         # 发出新的委托
         if self.pos == 0:
             if not self.buy_vt_orderids:
                 if self.d1 > 80 and self.cross_over:
                     self.buy_vt_orderids = self.buy(self.buy_price, self.fixed_size, True)
-                    if 'STOP.349' in self.buy_vt_orderids:
-                        print("在5这")
                     self.stoporder_count5 += 1
                     self.vt_count += 1
                     # print(f"第{self.vt_count}次委托\t委托时间：{self.cta_engine.datetime}\t开多仓委托：{self.buy_vt_orderids}")
@@ -436,16 +366,7 @@ class CCIStrategy(CtaTemplate):
                     
             if not self.short_vt_orderids:
                 if self.d1 < 20 and self.cross_below:
-                    print(f"此时的bar.close_price为:{self.bar.close_price}")
-                    print(f"此时的self.cta_engine.strategy.pos为:{self.cta_engine.strategy.pos}")
                     self.short_vt_orderids = self.short(self.short_price, self.fixed_size, True)
-                    if 'STOP.349' in self.short_vt_orderids:
-                        print("在6这")
-                        print(f"此时的self.pos为:{self.pos}")
-                        print(f"此时的self.cta_engine.strategy.pos为:{self.cta_engine.strategy.pos}")
-                        print(f"此时的bar.close_price为:{self.bar.close_price}")
-                        print(f"此时的short_price为:{self.short_price}")
-                        # print(f"STOP.349为:{self.cta_engine.active_stop_orders['STOP.349']}")
                     self.stoporder_count6 += 1
                     self.vt_count += 1
                     # print(f"第{self.vt_count}次委托\t委托时间：{self.cta_engine.datetime}\t开空仓委托：{self.short_vt_orderids}")
@@ -455,8 +376,6 @@ class CCIStrategy(CtaTemplate):
             if not self.sell_vt_orderids:
                 if self.d1 > 80 and self.cross_below:
                     self.sell_vt_orderids = self.sell(self.sell_price, abs(self.pos), True)
-                    if 'STOP.349' in self.sell_vt_orderids:
-                        print("在7这")
                     self.stoporder_count7 += 1
                     self.vt_count += 1
                     # print(f"第{self.vt_count}次委托\t委托时间：{self.cta_engine.datetime}\t平多仓委托：{self.sell_vt_orderids}")
@@ -466,34 +385,81 @@ class CCIStrategy(CtaTemplate):
             if not self.cover_vt_orderids:
                 if self.d1 < 20 and self.cross_over:
                     self.cover_vt_orderids = self.cover(self.cover_price, abs(self.pos), True)
-                    if "STOP.349" in self.cover_vt_orderids:
-                        print("在8这")
                     self.stoporder_count8 += 1
                     self.vt_count += 1
                     # print(f"第{self.vt_count}次委托\t委托时间：{self.cta_engine.datetime}\t平空仓委托：{self.cover_vt_orderids}")
                     self.cover_price = 0
-                    
-    # def on_trade(self, trade: TradeData):
-    #     print(trade.direction)
-    #     print(trade.offset)
 
-    def on_trade(self, trade: TradeData):
-        """
-        Callback of new trade data update.
-        """
-        # print(trade.vt_orderid)
-        # print(trade.vt_tradeid)
-        # if trade.direction == "平" and trade.orderid == self.sell_orderid:
-        #     self.sell_count += 1
-        if trade.vt_orderid == "STOP.349":
-            print(f"在on_trade下打印stop349:{trade}")
-        
+    def on_order(self, order):
+        """"""
+        if order.status == Status.CANCELLED:
+            self.ordercount += 1
+
 
 class NewArrayManager(ArrayManager):
     """"""
     def __init__(self, size=100):
         """"""
         super().__init__(size)
+
+        self.high_array_kdj: np.ndarray = np.zeros(size)
+        self.low_array_kdj: np.ndarray = np.zeros(size)
+        self.close_array_kdj: np.ndarray = np.zeros(size)
+        self.volume_array_kdj: np.ndarray = np.zeros(size)
+
+    def update_bar(self, bar: BarData) -> None:
+        """
+        Update new bar data into array manager.
+        """
+        self.count += 1
+        if not self.inited and self.count >= self.size:
+            self.inited = True
+
+        self.open_array[:-1] = self.open_array[1:]
+        self.high_array[:-1] = self.high_array[1:]
+        self.low_array[:-1] = self.low_array[1:]
+        self.close_array[:-1] = self.close_array[1:]
+        self.volume_array[:-1] = self.volume_array[1:]
+        self.open_interest_array[:-1] = self.open_interest_array[1:]
+
+        self.open_array[-1] = bar.open_price
+        self.high_array[-1] = bar.high_price
+        self.low_array[-1] = bar.low_price
+        self.close_array[-1] = bar.close_price
+        self.volume_array[-1] = bar.volume
+        self.open_interest_array[-1] = bar.open_interest
+
+        total_volume = self.volume_array.sum()
+        self.volume_array_kdj = self.volume_array_kdj/total_volume
+    
+    def high_kdj(self) -> np.ndarray:
+        """"""
+        return np.multiply(self.high_array, self.volume_array_kdj)
+    
+    def low_kdj(self) -> np.ndarray:
+        """"""
+        return np.multiply(self.low_array, self.volume_array_kdj)
+    
+    def close_kdj(self) -> np.ndarray:
+        """"""
+        return np.multiply(self.close_array, self.volume_array_kdj)
+
+    def kdj_wa(
+            self, 
+            fastk_period, 
+            slowk_period, 
+            slowk_matype, 
+            slowd_period,
+            slowd_matype, 
+            array=False
+            ):
+            """"""
+            slowk, slowd, = talib.STOCH(self.high_kdj, self.low_kdj, self.close_kdj, fastk_period, slowk_period, slowk_matype, slowd_period, slowd_matype)
+            # 求出J值，J = (3 * D) - (2 * K)
+            slowj = list(map(lambda x, y: 3*x - 2*y, slowk, slowd))
+            if array:
+                return slowk, slowd, slowj
+            return slowk[-1], slowd[-1], slowj[-1]    
 
     def kdj(
         self, 
@@ -535,6 +501,8 @@ class XminBarGenerator(BarGenerator):
         """
         Update 1 minute bar into generator
         """
+        # and (bar.exchange in [Exchange.SHFE, Exchange.DCE, Exchange.CZCE])
+        # print(f"bar.datetime.time:{bar.datetime.time()}")
         # If not inited, creaate window bar object
         if not self.window_bar:
             # Generate timestamp for bar data
@@ -573,9 +541,15 @@ class XminBarGenerator(BarGenerator):
             #     finished = True
             
             self.interval_count += 1
+
             if not self.interval_count % self.window:
                 finished = True
                 self.interval_count = 0
+
+            elif bar.datetime.time() in [time1(10, 14), time1(11, 29), time1(14, 59), time1(22, 59)]:
+                if bar.exchange in [Exchange.SHFE, Exchange.DCE, Exchange.CZCE]:
+                    finished = True
+                    self.interval_count = 0
 
         elif self.interval == Interval.HOUR:
             if self.last_bar:
@@ -604,7 +578,7 @@ class XminBarGenerator(BarGenerator):
         self.last_bar = bar
   
 #%%
-start = time.time()
+start1 = time.time()
 engine = BacktestingEngine()
 engine.set_parameters(
     vt_symbol="rb2010.SHFE",
@@ -620,15 +594,18 @@ engine.set_parameters(
 )
 engine.add_strategy(CCIStrategy, {})
 #%%
+start2 = time.time()
 engine.load_data()
+end2 = time.time()
+print(f"加载数据所需时长: {(end2-start2)} Seconds")
 #%%
 engine.run_backtesting()
 #%%
 engine.calculate_result()
 engine.calculate_statistics()
 # 待测试的代码
-end = time.time()
-print(f"Running time: {(end-start)} Seconds")
+end1 = time.time()
+print(f"单次回测运行时长: {(end1-start1)} Seconds")
 engine.show_chart()
 #%%
 # setting = OptimizationSetting()
@@ -640,11 +617,4 @@ engine.show_chart()
 # setting.add_parameter("cover_multiplier", 1.01, 1.20, 0.01)
 # setting.add_parameter("pricetick_multiplier", 1, 5, 1)
 #%%
-# result1 = engine.run_optimization(setting, output=True)
-# print(result1[1])
-#%%
-# print(result1[2])
-#%%
-# print(result1[15])
-
-# %%
+# engine.run_optimization(setting, output=True)
