@@ -1,0 +1,8 @@
+1. 打开terminal
+2. 进入ui所在文件件
+命令：cd /Users/huangning/Library/Mobile\ Documents/com\~apple\~CloudDocs/CTA策略/CTA/17-GUI
+3. 输入转化命令：
+If you want individual files to contain main method to run the files individually, may be for testing purpose
+pyuic5 filename.ui -o filename.py -x
+No main method in file, cannot run individually... try
+pyuic5 filename.ui -o filename.py

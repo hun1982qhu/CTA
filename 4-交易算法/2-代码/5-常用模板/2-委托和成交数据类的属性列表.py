@@ -39,8 +39,6 @@ trade_data1.gateway_name
 trade_data1.price
 trade_data1.volume
 trade_data1.datetime
-trade_data1.orderid
-trade_data1.vt_orderid
 
 postiondata1 = PositionData
 postiondata1.frozen
