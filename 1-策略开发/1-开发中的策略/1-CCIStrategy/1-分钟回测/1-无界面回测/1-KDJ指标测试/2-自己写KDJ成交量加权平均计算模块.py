@@ -33,14 +33,15 @@ class CCIStrategy(CtaTemplate):
     """"""
     author = "Huang Ning"
 
-    bar_window_length = 3
+    bar_window_length = 19
     fixed_size = 10
-    pricetick_multilplier = 7
+    pricetick_multilplier1 = 7
+    pricetick_multilplier2 = 0
     fastk_period = 9
     slowk_period = 5
-    slowk_matype = 0
+    slowk_matype = 2
     slowd_period = 5
-    slowd_matype = 0
+    slowd_matype = 2
     
     k1 = 0
     k2 = 0
@@ -50,7 +51,7 @@ class CCIStrategy(CtaTemplate):
     parameters = [
         "bar_window_length",
         "fixed_size",
-        "pricetick_multilplier",
+        "pricetick_multilplier1",
         "fastk_period",
         "slowk_period",
         "slowk_matype",
@@ -126,6 +127,16 @@ class CCIStrategy(CtaTemplate):
 
         self.ordercount = 0
 
+        self.original = pd.DataFrame()
+
+        self.k_weighted = []
+        self.d_weighted = []
+        self.j_weighted = []
+
+        self.k_normal = []
+        self.d_normal = []
+        self.j_normal = []
+
     def on_init(self):
         """"""
         self.write_log("策略初始化")
@@ -154,18 +165,41 @@ class CCIStrategy(CtaTemplate):
             #     errorlist.append(str(item))
         # print(f"errorlist:{errorlist}")
            
-        # print(f"在on_xmin_bar下的buy_stop_order:              {self.stoporder_count1}")
-        # print(f"在on_xmin_bar下取消buy_stop_order的次数:       {self.cancel_count1}\n")
-        # print(f"在on_xmin_bar下的short_stop_order:            {self.stoporder_count2}")
-        # print(f"在on_xmin_bar下取消short_stop_order的次数:     {self.cancel_count2}\n")
-        # print(f"在on_xmin_bar下的sell_stop_order:             {self.stoporder_count3}")
-        # print(f"在on_xmin_bar下取消sell_stop_order的次数:      {self.cancel_count3}\n")
-        # print(f"在on_xmin_bar下的cover_stop_order:            {self.stoporder_count4}")
-        # print(f"在on_xmin_bar下取消cover_stop_order的次数:     {self.cancel_count4}\n")
-        # print(f"在on_stop_order下的buy_stop_order:            {self.stoporder_count5}")
-        # print(f"在on_stop_order下的short_stop_order:          {self.stoporder_count6}")
-        # print(f"在on_stop_order下的sell_stop_order:           {self.stoporder_count7}")
-        # print(f"在on_stop_order下的cover_stop_order:          {self.stoporder_count8}")
+        print(f"在on_xmin_bar下的buy_stop_order:              {self.stoporder_count1}")
+        print(f"在on_xmin_bar下取消buy_stop_order的次数:       {self.cancel_count1}\n")
+        print(f"在on_xmin_bar下的short_stop_order:            {self.stoporder_count2}")
+        print(f"在on_xmin_bar下取消short_stop_order的次数:     {self.cancel_count2}\n")
+        print(f"在on_xmin_bar下的sell_stop_order:             {self.stoporder_count3}")
+        print(f"在on_xmin_bar下取消sell_stop_order的次数:      {self.cancel_count3}\n")
+        print(f"在on_xmin_bar下的cover_stop_order:            {self.stoporder_count4}")
+        print(f"在on_xmin_bar下取消cover_stop_order的次数:     {self.cancel_count4}\n")
+        print(f"在on_stop_order下的buy_stop_order:            {self.stoporder_count5}")
+        print(f"在on_stop_order下的short_stop_order:          {self.stoporder_count6}")
+        print(f"在on_stop_order下的sell_stop_order:           {self.stoporder_count7}")
+        print(f"在on_stop_order下的cover_stop_order:          {self.stoporder_count8}")
+
+        data = self.original
+
+        data["k_weighted"] = self.k_weighted[-100:]
+        data["d_weighted"] = self.d_weighted[-100:]
+        data["j_weighted"] = self.j_weighted[-100:]
+
+        data["k_normal"] = self.k_normal[-100:]
+        data["d_normal"] = self.d_normal[-100:]
+        data["j_normal"] = self.j_normal[-100:]
+
+        fig = plt.figure(figsize=(20, 8))
+        plt.subplot(2, 1, 1)
+        plt.plot(data["k_weighted"], color='r', label='k_weighted')
+        plt.plot(data["d_weighted"], color='b', label='d_weighted')
+        plt.plot(data["j_weighted"], color='y', label='j_weighted')
+        plt.subplot(2, 1, 2)
+        plt.plot(data["k_normal"], color='r', label='k_normal')
+        plt.plot(data["d_normal"], color='b', label='d_normal')
+        plt.plot(data["j_normal"], color='y', label='j_normal')
+        plt.legend()
+        plt.show()
+        
 
         # print(f"self.waiting_count:{self.waiting_count}")
         # print(f"self.cancelled_count:{self.cancelled_count}")
@@ -186,39 +220,38 @@ class CCIStrategy(CtaTemplate):
     def on_bar(self, bar: BarData):
         """"""
 
+        self.bg.update_bar(bar)
+
         # print(f"active_stop_orders:{self.cta_engine.active_stop_orders}")
         active_stop_orders = self.cta_engine.active_stop_orders
 
-        if active_stop_orders:
+        if active_stop_orders:    
             stop_orderid = list(active_stop_orders.keys())[0]
             stop_order = list(active_stop_orders.values())[0]
 
             if stop_order.direction == Direction.LONG and stop_order.offset == Offset.OPEN:
                 self.cancel_order(stop_orderid)
-                self.buy(bar.close_price, self.fixed_size, True)
+                self.buy(bar.close_price + self.pricetick * self.pricetick_multilplier2, self.fixed_size, True)
             
             elif stop_order.direction == Direction.SHORT and stop_order.offset == Offset.OPEN:
                 self.cancel_order(stop_orderid)
-                self.short(bar.close_price, self.fixed_size, True)
+                self.short(bar.close_price - self.pricetick * self.pricetick_multilplier2, self.fixed_size, True)
             
             elif stop_order.direction == Direction.LONG and stop_order.offset == Offset.CLOSE:
                 self.cancel_order(stop_orderid)
-                self.sell(bar.close_price, self.fixed_size, True)
+                self.sell(bar.close_price - self.pricetick * self.pricetick_multilplier2, self.fixed_size, True)
 
             elif stop_order.direction == Direction.SHORT and stop_order.offset == Offset.CLOSE:
                 self.cancel_order(stop_orderid)
-                self.cover(bar.close_price, self.fixed_size, True)
+                self.cover(bar.close_price + self.pricetick * self.pricetick_multilplier2, self.fixed_size, True)
 
-        self.bg.update_bar(bar)
+        
 
             # print(f"stop_ordersid:{stop_orderid}")
             # print(f"stop_orders:{stop_order}")
         
     def on_Xmin_bar(self, bar: BarData):
         """"""
-
-        print(bar.datetime)
-
         am = self.am
 
         am.update_bar(bar)
@@ -227,7 +260,7 @@ class CCIStrategy(CtaTemplate):
             # print(f"当前bar数量为：{str(self.am.count)}, 还差{str(self.am.size - self.am.count)}条")
             return
         
-        self.slowk, self.slowd, self.slowj = am.kdj_wa(
+        self.slowk, self.slowd, self.slowj = am.kdj(
             self.fastk_period,
             self.slowk_period,
             self.slowk_matype,
@@ -236,14 +269,20 @@ class CCIStrategy(CtaTemplate):
             array=True
             )
 
+        self.k_normal.append(self.slowk[-1])
+        self.d_normal.append(self.slowd[-1])
+        self.j_normal.append(self.slowj[-1])
+
         # self.slowk, self.slowd, self.slowj = am.kdjs(
         #     9,
         #     array=True
         #     )
 
-        # self.k.append(self.slowk[-1])
-        # self.d.append(self.slowd[-1])
-        # self.j.append(self.slowj[-1])
+        slowk, slowd, slowj = am.kdj_weighted(self.fastk_period, array=True)
+        print(f"slowk:{slowk}")
+        self.k_weighted.append(slowk[-1])
+        self.d_weighted.append(slowd[-1])
+        self.j_weighted.append(slowj[-1])
         
         self.k1 = self.slowk[-1]
         self.k2 = self.slowk[-2]
@@ -251,17 +290,19 @@ class CCIStrategy(CtaTemplate):
         self.d2 = self.slowd[-2]
 
         self.cross_over = (self.k2 < self.d2 and self.k1 > self.d1)
+        # print(f"self.cross_over")
         self.cross_below = (self.k2 > self.d2 and self.k1 < self.d1)
+        # print(f"self.cross_below")
         
         if self.pos == 0:            
-            self.buy_price = bar.close_price + self.pricetick * self.pricetick_multilplier
+            self.buy_price = bar.close_price + self.pricetick * self.pricetick_multilplier1
             self.sell_price = 0
-            self.short_price = bar.close_price - self.pricetick * self.pricetick_multilplier
+            self.short_price = bar.close_price - self.pricetick * self.pricetick_multilplier1
             self.cover_price = 0
 
         elif self.pos > 0:            
             self.buy_price = 0
-            self.sell_price = bar.close_price - self.pricetick * self.pricetick_multilplier
+            self.sell_price = bar.close_price - self.pricetick * self.pricetick_multilplier1
             self.short_price = 0
             self.cover_price = 0
 
@@ -269,7 +310,7 @@ class CCIStrategy(CtaTemplate):
             self.buy_price = 0
             self.sell_price = 0
             self.short_price = 0
-            self.cover_price = bar.close_price + self.pricetick * self.pricetick_multilplier
+            self.cover_price = bar.close_price + self.pricetick * self.pricetick_multilplier1
 
         if self.pos == 0:
             if not self.buy_vt_orderids:
@@ -401,66 +442,65 @@ class NewArrayManager(ArrayManager):
     def __init__(self, size=100):
         """"""
         super().__init__(size)
+        
+        self.slowk = np.array([50.00, 50.00])
+        self.slowd = np.array([50.00, 50.00])
+        self.slowj = np.array([50.00, 50.00])
 
-        self.high_array_kdj: np.ndarray = np.zeros(size)
-        self.low_array_kdj: np.ndarray = np.zeros(size)
-        self.close_array_kdj: np.ndarray = np.zeros(size)
-        self.volume_array_kdj: np.ndarray = np.zeros(size)
-
-    def update_bar(self, bar: BarData) -> None:
-        """
-        Update new bar data into array manager.
-        """
-        self.count += 1
-        if not self.inited and self.count >= self.size:
-            self.inited = True
-
-        self.open_array[:-1] = self.open_array[1:]
-        self.high_array[:-1] = self.high_array[1:]
-        self.low_array[:-1] = self.low_array[1:]
-        self.close_array[:-1] = self.close_array[1:]
-        self.volume_array[:-1] = self.volume_array[1:]
-        self.open_interest_array[:-1] = self.open_interest_array[1:]
-
-        self.open_array[-1] = bar.open_price
-        self.high_array[-1] = bar.high_price
-        self.low_array[-1] = bar.low_price
-        self.close_array[-1] = bar.close_price
-        self.volume_array[-1] = bar.volume
-        self.open_interest_array[-1] = bar.open_interest
-
-        total_volume = self.volume_array.sum()
-        self.volume_array_kdj = self.volume_array_kdj/total_volume
-    
-    def high_kdj(self) -> np.ndarray:
+        self.K = 50.00
+        self.D = 50.00
+        self.J = 50.00
+        
+    def kdj_weighted(
+        self,
+        fastk_period, 
+        array=False
+        ):
         """"""
-        return np.multiply(self.high_array, self.volume_array_kdj)
-    
-    def low_kdj(self) -> np.ndarray:
-        """"""
-        return np.multiply(self.low_array, self.volume_array_kdj)
-    
-    def close_kdj(self) -> np.ndarray:
-        """"""
-        return np.multiply(self.close_array, self.volume_array_kdj)
 
-    def kdj_wa(
-            self, 
-            fastk_period, 
-            slowk_period, 
-            slowk_matype, 
-            slowd_period,
-            slowd_matype, 
-            array=False
-            ):
-            """"""
-            slowk, slowd, = talib.STOCH(self.high_kdj, self.low_kdj, self.close_kdj, fastk_period, slowk_period, slowk_matype, slowd_period, slowd_matype)
-            # 求出J值，J = (3 * D) - (2 * K)
-            slowj = list(map(lambda x, y: 3*x - 2*y, slowk, slowd))
-            if array:
-                return slowk, slowd, slowj
-            return slowk[-1], slowd[-1], slowj[-1]    
+        high_array_kdj = self.high[-fastk_period:]
+        low_array_kdj = self.low[-fastk_period:]
+        close_array_kdj = self.close[-fastk_period:]
 
+        volume_array_kdj = self.volume[-fastk_period:]
+        total_volume = volume_array_kdj.sum()
+        volume_array_kdj_wa = volume_array_kdj/total_volume
+
+        high_array_kdj_wa = np.multiply(high_array_kdj, volume_array_kdj_wa)
+        low_array_kdj_wa = np.multiply(low_array_kdj, volume_array_kdj_wa)
+        close_array_kdj_wa = np.multiply(close_array_kdj, volume_array_kdj_wa)
+
+        H = max(high_array_kdj_wa)
+        L = min(low_array_kdj_wa)
+        C = close_array_kdj_wa.mean()
+        RSV = (C-L)*100/(H-L)
+
+        # 无第1日K值，设为50
+        if self.K == 50:
+            self.K = self.K*2/3 + RSV*1/3
+        else:
+            self.K = self.K*2/3 + RSV*1/3
+        
+        # 无第1日D值，设为50
+        if self.D == 50:
+            self.D = self.D*2/3 + self.K*1/3
+        else:
+            self.D = self.D*2/3 + self.K*1/3 
+
+        self.J = 3 * self.K - 2 * self.D
+
+        self.slowk[:-1] = self.slowk[1:]
+        self.slowd[:-1] = self.slowd[1:]
+        self.slowj[:-1] = self.slowj[1:]
+
+        self.slowk[-1] = self.K
+        self.slowd[-1] = self.D
+        self.slowj[-1] = self.J
+
+        if array:
+            return self.slowk, self.slowd, self.slowj
+        return self.slowk[-1], self.slowd[-1], self.slowj[-1]
+        
     def kdj(
         self, 
         fastk_period, 
@@ -485,7 +525,6 @@ class NewArrayManager(ArrayManager):
         if array:
             return slowk, slowd, slowj
         return slowk[-1], slowd[-1], slowj[-1]
-
 
 class XminBarGenerator(BarGenerator):
     def __init__(
@@ -586,7 +625,7 @@ engine.set_parameters(
     start=datetime(2019, 10, 15),
     end=datetime(2020,10,15),
     rate=0.0001,
-    slippage=2,
+    slippage=10,
     size=10,
     pricetick=1,
     capital=1_000_000,
@@ -618,3 +657,4 @@ engine.show_chart()
 # setting.add_parameter("pricetick_multiplier", 1, 5, 1)
 #%%
 # engine.run_optimization(setting, output=True)
+# %%
