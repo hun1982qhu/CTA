@@ -13,6 +13,7 @@ from vnpy.app.cta_strategy.backtestingHN import BacktestingEngine, OptimizationS
 from vnpy.trader.object import BarData, TickData
 from vnpy.trader.constant import Interval, Offset, Direction, Exchange, Status
 import numpy as np
+from numpy import nan
 import pandas as pd
 from datetime import time as time1
 from datetime import datetime
@@ -33,7 +34,7 @@ class CCIStrategy(CtaTemplate):
     """"""
     author = "Huang Ning"
 
-    bar_window_length = 19
+    bar_window_length = 3
     fixed_size = 10
     pricetick_multilplier1 = 7
     pricetick_multilplier2 = 0
@@ -245,8 +246,6 @@ class CCIStrategy(CtaTemplate):
                 self.cancel_order(stop_orderid)
                 self.cover(bar.close_price + self.pricetick * self.pricetick_multilplier2, self.fixed_size, True)
 
-        
-
             # print(f"stop_ordersid:{stop_orderid}")
             # print(f"stop_orders:{stop_order}")
         
@@ -279,7 +278,26 @@ class CCIStrategy(CtaTemplate):
         #     )
 
         slowk, slowd, slowj = am.kdj_weighted(self.fastk_period, array=True)
-        print(f"slowk:{slowk}")
+        # print(f"am.high:{am.high[-self.fastk_period:]}")
+        # if len(am.high[-self.fastk_period:]) != self.fastk_period:
+        #     print("这里有问题")
+
+        error_count = 0
+        # print(f"{slowk[-1]},类型为{type(slowk[-1])}") #== nan:
+        if slowk[-1] == 2.0877207616528444:
+            error_count += 1
+            if error_count == 1:
+                print(f"slowk:{slowk}")
+                print(am.H, am.L, am.C, am.RSV)
+                print(am.high)
+                print(am.low)
+                print(am.close)
+        # # print(slowk[-1])
+        # if slowk[-1] == 1.0262019437850172:
+        #     print(f"am.high:{am.high}")
+        #     print(f"am.low:{am.low}")
+        #     print(f"am.close:{am.close}")
+
         self.k_weighted.append(slowk[-1])
         self.d_weighted.append(slowd[-1])
         self.j_weighted.append(slowj[-1])
@@ -314,7 +332,7 @@ class CCIStrategy(CtaTemplate):
 
         if self.pos == 0:
             if not self.buy_vt_orderids:
-                if self.d1 > 80 and self.cross_over:
+                if self.d1 > 50 and self.cross_over:
                     self.buy_vt_orderids = self.buy(self.buy_price, self.fixed_size, True)
                     self.stoporder_count1 += 1
                     self.vt_count += 1
@@ -326,7 +344,7 @@ class CCIStrategy(CtaTemplate):
                     self.cancel_count1 += 1
                    
             if not self.short_vt_orderids:
-                if self.d1 < 20 and self.cross_below:
+                if self.d1 < 40 and self.cross_below:
                     self.short_vt_orderids = self.short(self.short_price, self.fixed_size, True)
                     self.stoporder_count2 += 1
                     self.vt_count += 1
@@ -339,7 +357,7 @@ class CCIStrategy(CtaTemplate):
 
         elif self.pos > 0:
             if not self.sell_vt_orderids:
-                if self.d1 > 80 and self.cross_below:
+                if self.d1 > 60 and self.cross_below:
                     self.sell_vt_orderids = self.sell(self.sell_price, abs(self.pos), True)
                     self.stoporder_count3 += 1
                     self.vt_count += 1
@@ -352,7 +370,7 @@ class CCIStrategy(CtaTemplate):
                     
         else:
             if not self.cover_vt_orderids:
-                if self.d1 < 20 and self.cross_over:
+                if self.d1 < 30 and self.cross_over:
                     self.cover_vt_orderids = self.cover(self.cover_price, abs(self.pos), True)
                     self.stoporder_count4 += 1
                     self.vt_count += 1
@@ -442,14 +460,19 @@ class NewArrayManager(ArrayManager):
     def __init__(self, size=100):
         """"""
         super().__init__(size)
-        
+
         self.slowk = np.array([50.00, 50.00])
         self.slowd = np.array([50.00, 50.00])
         self.slowj = np.array([50.00, 50.00])
 
-        self.K = 50.00
-        self.D = 50.00
-        self.J = 50.00
+        self.K: float = 50.00
+        self.D: float = 50.00
+        self.J: float = 50.00
+
+        self.H: float = 0
+        self.L: float = 0
+        self.C: float = 0
+        self.RSV: float = 0
         
     def kdj_weighted(
         self,
@@ -457,7 +480,6 @@ class NewArrayManager(ArrayManager):
         array=False
         ):
         """"""
-
         high_array_kdj = self.high[-fastk_period:]
         low_array_kdj = self.low[-fastk_period:]
         close_array_kdj = self.close[-fastk_period:]
@@ -470,23 +492,14 @@ class NewArrayManager(ArrayManager):
         low_array_kdj_wa = np.multiply(low_array_kdj, volume_array_kdj_wa)
         close_array_kdj_wa = np.multiply(close_array_kdj, volume_array_kdj_wa)
 
-        H = max(high_array_kdj_wa)
-        L = min(low_array_kdj_wa)
-        C = close_array_kdj_wa.mean()
-        RSV = (C-L)*100/(H-L)
+        self.H = max(high_array_kdj_wa)
+        self.L = min(low_array_kdj_wa)
+        self.C = close_array_kdj_wa[-1]
+        self.RSV = (self.C-self.L)*100/(self.H-self.L)
 
         # 无第1日K值，设为50
-        if self.K == 50:
-            self.K = self.K*2/3 + RSV*1/3
-        else:
-            self.K = self.K*2/3 + RSV*1/3
-        
-        # 无第1日D值，设为50
-        if self.D == 50:
-            self.D = self.D*2/3 + self.K*1/3
-        else:
-            self.D = self.D*2/3 + self.K*1/3 
-
+        self.K = self.K*2/3 + self.RSV*1/3
+        self.D = self.D*2/3 + self.K*1/3
         self.J = 3 * self.K - 2 * self.D
 
         self.slowk[:-1] = self.slowk[1:]

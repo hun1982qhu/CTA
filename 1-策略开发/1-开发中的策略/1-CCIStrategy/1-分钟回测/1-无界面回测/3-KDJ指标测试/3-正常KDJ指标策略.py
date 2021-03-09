@@ -1,3 +1,4 @@
+#%%
 from typing import Any, Callable
 from vnpy.app.cta_strategy import (
     CtaTemplate,
@@ -7,21 +8,28 @@ from vnpy.app.cta_strategy import (
     StopOrder,
     OrderData
 )
-from vnpy.app.cta_strategy.base import EngineType, StopOrderStatus
-from vnpy.trader.object import (BarData, TickData)
+from vnpy.app.cta_strategy.base import StopOrderStatus, BacktestingMode
+from vnpy.app.cta_strategy.backtestingHN import BacktestingEngine, OptimizationSetting
+from vnpy.trader.object import BarData, TickData
 from vnpy.trader.constant import Interval, Offset, Direction, Exchange, Status
 import numpy as np
-from vnpy.app.cta_strategy.backtesting import BacktestingEngine, OptimizationSetting
-from vnpy.app.cta_strategy.base import BacktestingMode
+from numpy import nan
+import pandas as pd
 from datetime import time as time1
 from datetime import datetime
-import numpy as np
-import pandas as pd
-from vnpy.trader.constant import Status
-import numpy as np
+import time
 import talib
+import matplotlib.pyplot as plt
+import matplotlib as mpl
+from matplotlib import style
+mpl.rcParams['font.family'] = 'serif'  # 解决一些字体显示乱码的问题
 
+style.use('ggplot')
+import seaborn as sns
 
+sns.set()
+
+#%%
 class CCIStrategy(CtaTemplate):
     """"""
     author = "Huang Ning"
@@ -29,7 +37,7 @@ class CCIStrategy(CtaTemplate):
     bar_window_length = 3
     fixed_size = 10
     pricetick_multilplier1 = 1
-    pricetick_multilplier2 = 2
+    pricetick_multilplier2 = 1
     kdj_overbought_line = 80
     kdj_oversold_line = 20
     fastk_period = 9
@@ -598,3 +606,46 @@ class XminBarGenerator(BarGenerator):
 
         # Cache last bar object
         self.last_bar = bar
+  
+#%%
+start1 = time.time()
+engine = BacktestingEngine()
+engine.set_parameters(
+    vt_symbol="rb2010.SHFE",
+    interval="1m",
+    start=datetime(2019, 10, 15),
+    end=datetime(2020,10,15),
+    rate=0.0001,
+    slippage=5,
+    size=10,
+    pricetick=1,
+    capital=1_000_000,
+    mode=BacktestingMode.BAR
+)
+engine.add_strategy(CCIStrategy, {})
+#%%
+start2 = time.time()
+engine.load_data()
+end2 = time.time()
+print(f"加载数据所需时长: {(end2-start2)} Seconds")
+#%%
+engine.run_backtesting()
+#%%
+engine.calculate_result()
+engine.calculate_statistics()
+# 待测试的代码
+end1 = time.time()
+print(f"单次回测运行时长: {(end1-start1)} Seconds")
+engine.show_chart()
+#%%
+# setting = OptimizationSetting()
+# setting.set_target("end_balance")
+# setting.add_parameter("bar_window_length", 1, 20, 1)
+# setting.add_parameter("cci_window", 3, 10, 1)
+# setting.add_parameter("fixed_size", 1, 1, 1)
+# setting.add_parameter("sell_multipliaer", 0.80, 0.99, 0.01)
+# setting.add_parameter("cover_multiplier", 1.01, 1.20, 0.01)
+# setting.add_parameter("pricetick_multiplier", 1, 5, 1)
+#%%
+# engine.run_optimization(setting, output=True)
+# %%
