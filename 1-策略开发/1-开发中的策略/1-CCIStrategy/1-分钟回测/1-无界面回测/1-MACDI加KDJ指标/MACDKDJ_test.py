@@ -48,7 +48,7 @@ class KdjMacdStrategy(CtaTemplate):
     kdj_slowk_matype = 0
     kdj_slowd_period = 5
     kdj_slowd_matype = 0
-    macd_fastk_period = 3
+    macd_fastk_period = 7
     macd_slowk_period = 27
     macd_signal_period = 5
 
@@ -120,7 +120,7 @@ class KdjMacdStrategy(CtaTemplate):
     def on_init(self):
         """"""
         self.write_log("策略初始化")
-        self.load_bar(1)
+        self.load_bar(10)
 
     def on_start(self):
         """"""
@@ -139,27 +139,6 @@ class KdjMacdStrategy(CtaTemplate):
         """"""
         self.bg.update_bar(bar)
 
-        active_stop_orders = self.cta_engine.active_stop_orders
-        if active_stop_orders:    
-            stop_orderid = list(active_stop_orders.keys())[0]
-            stop_order = list(active_stop_orders.values())[0]
-
-            if stop_order.direction == Direction.LONG and stop_order.offset == Offset.OPEN:
-                self.cancel_order(stop_orderid)
-                self.buy(bar.close_price + self.pricetick * self.pricetick_multilplier2, self.fixed_size, True)
-            
-            elif stop_order.direction == Direction.SHORT and stop_order.offset == Offset.OPEN:
-                self.cancel_order(stop_orderid)
-                self.short(bar.close_price - self.pricetick * self.pricetick_multilplier2, self.fixed_size, True)
-            
-            elif stop_order.direction == Direction.LONG and stop_order.offset == Offset.CLOSE:
-                self.cancel_order(stop_orderid)
-                self.sell(bar.close_price - self.pricetick * self.pricetick_multilplier2, self.fixed_size, True)
-
-            elif stop_order.direction == Direction.SHORT and stop_order.offset == Offset.CLOSE:
-                self.cancel_order(stop_orderid)
-                self.cover(bar.close_price + self.pricetick * self.pricetick_multilplier2, self.fixed_size, True)
-
     def on_Xmin_bar(self, bar: BarData):
         """"""
         am = self.am
@@ -170,159 +149,32 @@ class KdjMacdStrategy(CtaTemplate):
 
         self.macd, self.signal, self.hist = am.macd(self.macd_fastk_period, self.macd_signal_period, self.macd_slowk_period, True)
 
-        self.macd_cross_over = (self.hist[-2] < 0 and self.hist[-1] > 0)
-        self.macd_cross_below = (self.hist[-2] > 0 and self.hist[-1] < 0)
+
+
+        # self.macd_cross_over = (self.hist[-2] < 0 and self.hist[-1] > 0)
+        # self.macd_cross_below = (self.hist[-2] > 0 and self.hist[-1] < 0)
         
-        self.slowk, self.slowd, self.slowj = am.kdj(
-            self.kdj_fastk_period,
-            self.kdj_slowk_period,
-            self.kdj_slowk_matype,
-            self.kdj_slowd_period,
-            self.kdj_slowd_matype,
-            array=True
-            )
+        # self.slowk, self.slowd, self.slowj = am.kdj(
+        #     self.kdj_fastk_period,
+        #     self.kdj_slowk_period,
+        #     self.kdj_slowk_matype,
+        #     self.kdj_slowd_period,
+        #     self.kdj_slowd_matype,
+        #     array=True
+        #     )
         
-        self.k1 = self.slowk[-1]
-        self.k2 = self.slowk[-2]
-        self.d1 = self.slowd[-1]
-        self.d2 = self.slowd[-2]
-
-        self.kdj_cross_over = (self.k2 < self.d2 and self.k1 > self.d1)
-        self.kdj_cross_below = (self.k2 > self.d2 and self.k1 < self.d1)
-
-        if self.pos == 0:            
-            self.buy_price = bar.close_price + self.pricetick * self.pricetick_multilplier1
-            self.sell_price = 0
-            self.short_price = bar.close_price - self.pricetick * self.pricetick_multilplier1
-            self.cover_price = 0
-
-        elif self.pos > 0:            
-            self.buy_price = 0
-            self.sell_price = bar.close_price - self.pricetick * self.pricetick_multilplier1
-            self.short_price = 0
-            self.cover_price = 0
-
-        else:
-            self.buy_price = 0
-            self.sell_price = 0
-            self.short_price = 0
-            self.cover_price = bar.close_price + self.pricetick * self.pricetick_multilplier1
-
-        if self.pos == 0:
-            if not self.buy_vt_orderids:
-                if self.macd[-1] > 0 and self.signal[-1] > 0 and self.macd_cross_over:
-                    self.buy_vt_orderids = self.buy(self.buy_price, self.fixed_size, True)
-                    self.buy_price = 0
-
-                elif self.d1 > self.kdj_overbought_line and self.kdj_cross_over:
-                    self.buy_vt_orderids = self.buy(self.buy_price, self.fixed_size, True)
-                    self.buy_price = 0               
-            else:
-                for vt_orderid in self.buy_vt_orderids:
-                    self.cancel_order(vt_orderid)
-                   
-            if not self.short_vt_orderids:
-                if self.macd[-1] < 0 and self.signal[-1] < 0 and self.macd_cross_below:
-                    self.short_vt_orderids = self.short(self.short_price, self.fixed_size, True)
-                    self.short_price = 0
-
-                elif self.d1 < self.kdj_oversold_line and self.kdj_cross_below:
-                    self.short_vt_orderids = self.short(self.short_price, self.fixed_size, True)
-                    self.short_price = 0       
-            else:
-                for vt_orderid in self.short_vt_orderids:
-                    self.cancel_order(vt_orderid)
-
-        elif self.pos > 0:
-            if not self.sell_vt_orderids:
-                if self.macd[-1] < 0 and self.signal[-1] < 0 and self.macd_cross_below:
-                    self.short_vt_orderids = self.short(self.short_price, self.fixed_size, True)
-                    self.short_price = 0
-
-                elif self.d1 > self.kdj_overbought_line and self.kdj_cross_below:
-                    self.sell_vt_orderids = self.sell(self.sell_price, abs(self.pos), True)
-                    self.sell_price = 0
-
-            else:
-                for vt_orderid in self.sell_vt_orderids:
-                    self.cancel_order(vt_orderid)
-                    
-        else:
-            if not self.cover_vt_orderids:
-                if self.macd[-1] > 0 and self.signal[-1] > 0 and self.macd_cross_over:
-                    self.cover_vt_orderids = self.cover(self.cover_price, abs(self.pos), True)
-                    self.cover_price = 0
-
-                elif self.d1 < self.kdj_oversold_line and self.kdj_cross_over:
-                    self.cover_vt_orderids = self.cover(self.cover_price, abs(self.pos), True)
-                    self.cover_price = 0
-
-            else:
-                for vt_orderid in self.cover_vt_orderids:
-                    self.cancel_order(vt_orderid)
-
-        self.put_event()
+        # self.k1 = self.slowk[-1]
+        # self.k2 = self.slowk[-2]
+        # self.d1 = self.slowd[-1]
+        # self.d2 = self.slowd[-2]
                 
     def on_stop_order(self, stop_order: StopOrder):
         """"""
-        # 只处理撤销（CANCELLED）或者触发（TRIGGERED）的停止委托单 
-        if stop_order.status == StopOrderStatus.WAITING:
-            print(f"还在waiting状态的stop_order:{stop_order.stop_orderid}")
-            return
-
-        # 移除已经结束的停止单委托号
-        for buf_orderids in [
-            self.buy_vt_orderids,
-            self.sell_vt_orderids,
-            self.short_vt_orderids,
-            self.cover_vt_orderids
-        ]:
-            if stop_order.stop_orderid in buf_orderids:
-                buf_orderids.remove(stop_order.stop_orderid)
 
     def on_trade(self, trade: TradeData):
         """
         Callback of new trade data update.
         """
-        # 发出新的委托
-        if self.pos == 0:
-            if not self.buy_vt_orderids:
-                if self.macd[-1] > 0 and self.signal[-1] > 0 and self.macd_cross_over:
-                    self.buy_vt_orderids = self.buy(self.buy_price, self.fixed_size, True)
-                    self.buy_price = 0
-
-                elif self.d1 > self.kdj_overbought_line and self.kdj_cross_over:
-                    self.buy_vt_orderids = self.buy(self.buy_price, self.fixed_size, True)
-                    self.buy_price = 0
-                   
-            if not self.short_vt_orderids:
-                if self.macd[-1] < 0 and self.signal[-1] < 0 and self.macd_cross_below:
-                    self.short_vt_orderids = self.short(self.short_price, self.fixed_size, True)
-                    self.short_price = 0
-
-                elif self.d1 < self.kdj_oversold_line and self.kdj_cross_below:
-                    self.short_vt_orderids = self.short(self.short_price, self.fixed_size, True)
-                    self.short_price = 0
-                    
-        elif self.pos > 0:
-            if not self.sell_vt_orderids:
-                if self.macd[-1] < 0 and self.signal[-1] < 0 and self.macd_cross_below:
-                    self.sell_vt_orderids = self.sell(self.sell_price, abs(self.pos), True)
-                    self.sell_price = 0
-
-                elif self.d1 > self.kdj_overbought_line and self.kdj_cross_below:
-                    self.sell_vt_orderids = self.sell(self.sell_price, abs(self.pos), True)
-                    self.sell_price = 0
-                    
-        else:
-            if not self.cover_vt_orderids:
-                if self.macd[-1] > 0 and self.signal[-1] >0 and self.macd_cross_over:
-                    self.cover_vt_orderids = self.cover(self.cover_price, abs(self.pos), True)
-                    self.cover_price = 0
-
-                elif self.d1 < self.kdj_oversold_line and self.kdj_cross_over:
-                    self.cover_vt_orderids = self.cover(self.cover_price, abs(self.pos), True)
-                    self.cover_price = 0
 
     def on_order(self, order):
         """"""

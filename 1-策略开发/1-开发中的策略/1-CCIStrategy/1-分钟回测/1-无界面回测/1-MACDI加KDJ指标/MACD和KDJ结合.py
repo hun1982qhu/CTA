@@ -212,11 +212,7 @@ class KdjMacdStrategy(CtaTemplate):
             if not self.buy_vt_orderids:
                 if self.macd[-1] > 0 and self.signal[-1] > 0 and self.macd_cross_over:
                     self.buy_vt_orderids = self.buy(self.buy_price, self.fixed_size, True)
-                    self.buy_price = 0
-
-                elif self.d1 > self.kdj_overbought_line and self.kdj_cross_over:
-                    self.buy_vt_orderids = self.buy(self.buy_price, self.fixed_size, True)
-                    self.buy_price = 0               
+                    self.buy_price = 0       
             else:
                 for vt_orderid in self.buy_vt_orderids:
                     self.cancel_order(vt_orderid)
@@ -225,10 +221,6 @@ class KdjMacdStrategy(CtaTemplate):
                 if self.macd[-1] < 0 and self.signal[-1] < 0 and self.macd_cross_below:
                     self.short_vt_orderids = self.short(self.short_price, self.fixed_size, True)
                     self.short_price = 0
-
-                elif self.d1 < self.kdj_oversold_line and self.kdj_cross_below:
-                    self.short_vt_orderids = self.short(self.short_price, self.fixed_size, True)
-                    self.short_price = 0       
             else:
                 for vt_orderid in self.short_vt_orderids:
                     self.cancel_order(vt_orderid)
@@ -239,10 +231,6 @@ class KdjMacdStrategy(CtaTemplate):
                     self.short_vt_orderids = self.short(self.short_price, self.fixed_size, True)
                     self.short_price = 0
 
-                elif self.d1 > self.kdj_overbought_line and self.kdj_cross_below:
-                    self.sell_vt_orderids = self.sell(self.sell_price, abs(self.pos), True)
-                    self.sell_price = 0
-
             else:
                 for vt_orderid in self.sell_vt_orderids:
                     self.cancel_order(vt_orderid)
@@ -252,11 +240,6 @@ class KdjMacdStrategy(CtaTemplate):
                 if self.macd[-1] > 0 and self.signal[-1] > 0 and self.macd_cross_over:
                     self.cover_vt_orderids = self.cover(self.cover_price, abs(self.pos), True)
                     self.cover_price = 0
-
-                elif self.d1 < self.kdj_oversold_line and self.kdj_cross_over:
-                    self.cover_vt_orderids = self.cover(self.cover_price, abs(self.pos), True)
-                    self.cover_price = 0
-
             else:
                 for vt_orderid in self.cover_vt_orderids:
                     self.cancel_order(vt_orderid)
@@ -290,17 +273,9 @@ class KdjMacdStrategy(CtaTemplate):
                 if self.macd[-1] > 0 and self.signal[-1] > 0 and self.macd_cross_over:
                     self.buy_vt_orderids = self.buy(self.buy_price, self.fixed_size, True)
                     self.buy_price = 0
-
-                elif self.d1 > self.kdj_overbought_line and self.kdj_cross_over:
-                    self.buy_vt_orderids = self.buy(self.buy_price, self.fixed_size, True)
-                    self.buy_price = 0
                    
             if not self.short_vt_orderids:
                 if self.macd[-1] < 0 and self.signal[-1] < 0 and self.macd_cross_below:
-                    self.short_vt_orderids = self.short(self.short_price, self.fixed_size, True)
-                    self.short_price = 0
-
-                elif self.d1 < self.kdj_oversold_line and self.kdj_cross_below:
                     self.short_vt_orderids = self.short(self.short_price, self.fixed_size, True)
                     self.short_price = 0
                     
@@ -309,18 +284,10 @@ class KdjMacdStrategy(CtaTemplate):
                 if self.macd[-1] < 0 and self.signal[-1] < 0 and self.macd_cross_below:
                     self.sell_vt_orderids = self.sell(self.sell_price, abs(self.pos), True)
                     self.sell_price = 0
-
-                elif self.d1 > self.kdj_overbought_line and self.kdj_cross_below:
-                    self.sell_vt_orderids = self.sell(self.sell_price, abs(self.pos), True)
-                    self.sell_price = 0
                     
         else:
             if not self.cover_vt_orderids:
                 if self.macd[-1] > 0 and self.signal[-1] >0 and self.macd_cross_over:
-                    self.cover_vt_orderids = self.cover(self.cover_price, abs(self.pos), True)
-                    self.cover_price = 0
-
-                elif self.d1 < self.kdj_oversold_line and self.kdj_cross_over:
                     self.cover_vt_orderids = self.cover(self.cover_price, abs(self.pos), True)
                     self.cover_price = 0
 
