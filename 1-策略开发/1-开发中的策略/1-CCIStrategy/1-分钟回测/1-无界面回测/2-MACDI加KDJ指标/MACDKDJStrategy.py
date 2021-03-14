@@ -37,19 +37,19 @@ class KdjMacdStrategy(CtaTemplate):
     """"""
     author = "Huang Ning"
 
-    bar_window_length = 10
-    fixed_size = 10
+    bar_window_length = 3
+    fixed_size = 1
     pricetick_multilplier1 = 1
     pricetick_multilplier2 = 0
     kdj_overbought_line = 80
     kdj_oversold_line = 20
-    kdj_fastk_period = 9
-    kdj_slowk_period = 5
+    kdj_fastk_period = 89
+    kdj_slowk_period = 144
     kdj_slowk_matype = 0
     kdj_slowd_period = 5
     kdj_slowd_matype = 0
-    macd_fastk_period = 3
-    macd_slowk_period = 27
+    macd_fastk_period = 89
+    macd_slowk_period = 144
     macd_signal_period = 5
 
     k1 = 0

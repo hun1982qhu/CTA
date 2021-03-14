@@ -43,13 +43,13 @@ class KdjMacdStrategy(CtaTemplate):
     pricetick_multilplier2 = 0
     kdj_overbought_line = 80
     kdj_oversold_line = 20
-    kdj_fastk_period = 9
-    kdj_slowk_period = 5
+    kdj_fastk_period = 55
+    kdj_slowk_period = 89
     kdj_slowk_matype = 0
     kdj_slowd_period = 5
     kdj_slowd_matype = 0
-    macd_fastk_period = 3
-    macd_slowk_period = 27
+    macd_fastk_period = 55
+    macd_slowk_period = 89
     macd_signal_period = 5
 
     k1 = 0
