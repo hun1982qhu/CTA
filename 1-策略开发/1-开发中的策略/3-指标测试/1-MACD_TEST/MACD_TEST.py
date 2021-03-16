@@ -47,11 +47,11 @@ class KdjMacdStrategy(CtaTemplate):
 
     macd_fastk_period = 12
     macd_slowk_period = 26
-    macd_signal_period = 9
+    macd_dea_period = 9
 
-    macd = 0 
-    signal = 0 
-    hist = 0
+    diff = 0 
+    dea = 0 
+    macd = 0
 
     parameters = [
         "bar_window_length",
@@ -61,9 +61,9 @@ class KdjMacdStrategy(CtaTemplate):
     ]
 
     variables = [
-        "macd",
-        "signal",
-        "hist"
+        "diff",
+        "dea",
+        "macd"
     ]
 
     def __init__(
@@ -107,14 +107,14 @@ class KdjMacdStrategy(CtaTemplate):
         if not am.inited:
             return
 
-        EMA1 = talib.EMA(am.close, 12)
-        EMA2 = talib.EMA(am.close, 26)
+        EMA1 = talib.EMA(am.close, self.macd_fastk_period)
+        EMA2 = talib.EMA(am.close, self.macd_slowk_period)
 
         DIFF = EMA1 - EMA2
-        DEA = talib.EMA(DIFF, 9)
+        DEA = talib.EMA(DIFF, self.macd_dea_period)
         MACD = DIFF - DEA  # 其实应该是 (DIFF-DEA)*2
 
-        self.macd, self.signal, self.hist = am.macd(12, 26, 9, True)
+        self.diff, self.dea, self.macd = am.macd(self.macd_fastk_period, self.macd_slowk_period, self.macd_dea_period, True)
 
         print(f"EMA1:{EMA1[-1]}")
         print(f"EMA2:{EMA2[-1]}")
@@ -122,9 +122,9 @@ class KdjMacdStrategy(CtaTemplate):
         print(f"百度定义中的DEA:{DEA[-1]}")
         print(f"百度定义中的MACD:{MACD[-1]}")
 
+        print(f"talib.diff:{self.diff[-1]}")
+        print(f"talib.dea:{self.dea[-1]}")
         print(f"talib.macd:{self.macd[-1]}")
-        print(f"talib.signal:{self.signal[-1]}")
-        print(f"talib.hist:{self.hist[-1]}")
 
     def on_stop_order(self, stop_order: StopOrder):
         """"""

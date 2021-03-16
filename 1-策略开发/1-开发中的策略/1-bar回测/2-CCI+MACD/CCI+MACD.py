@@ -39,54 +39,20 @@ class KdjMacdStrategy(CtaTemplate):
 
     bar_window_length = 3
     fixed_size = 1
-    pricetick_multilplier1 = 1
-    pricetick_multilplier2 = 0
-    kdj_overbought_line = 80
-    kdj_oversold_line = 20
-    kdj_fastk_period = 89
-    kdj_slowk_period = 144
-    kdj_slowk_matype = 0
-    kdj_slowd_period = 5
-    kdj_slowd_matype = 0
+    cci_window = 0
     macd_fastk_period = 89
     macd_slowk_period = 144
-    macd_signal_period = 5
+    macd_dea_period = 5
+    pricetick_multilplier1 = 1
+    pricetick_multilplier2 = 0
 
-    k1 = 0
-    k2 = 0
-    d1 = 0
-    d2 = 0
+    diff = 0 
+    dea = 0 
+    macd = 0
 
-    macd = 0 
-    signal = 0 
-    hist = 0
+    parameters = []
 
-    parameters = [
-        "bar_window_length",
-        "fixed_size",
-        "pricetick_multilplier1",
-        "pricetick_multilplier2",
-        "kdj_overbought_line",
-        "kdj_oversold_line",
-        "kdj_fastk_period",
-        "kdj_slowk_period",
-        "kdj_slowk_matype",
-        "kdj_slowd_period",
-        "kdj_slowd_matype",
-        "macd_fastk_period",
-        "macd_slowk_period",
-        "macd_signal_period"
-    ]
-
-    variables = [
-        "k1",
-        "k2",
-        "d1",
-        "d2",
-        "macd",
-        "signal",
-        "hist"
-    ]
+    variables = []
 
     def __init__(
         self,
@@ -110,9 +76,6 @@ class KdjMacdStrategy(CtaTemplate):
         self.sell_price = 0
         self.short_price = 0
         self.cover_price = 0
-
-        self.kdj_cross_over = False
-        self.kdj_cross_below = False
 
         self.macd_cross_over = False
         self.macd_cross_below = False
@@ -168,27 +131,10 @@ class KdjMacdStrategy(CtaTemplate):
         if not am.inited:
             return
 
-        self.macd, self.signal, self.hist = am.macd(self.macd_fastk_period, self.macd_signal_period, self.macd_slowk_period, True)
+        self.diff, self.dea, self.macd = am.macd(self.macd_fastk_period, self.macd_slowk_period, self.macd_dea_period, True)
 
         self.macd_cross_over = (self.hist[-2] < 0 and self.hist[-1] > 0)
         self.macd_cross_below = (self.hist[-2] > 0 and self.hist[-1] < 0)
-        
-        self.slowk, self.slowd, self.slowj = am.kdj(
-            self.kdj_fastk_period,
-            self.kdj_slowk_period,
-            self.kdj_slowk_matype,
-            self.kdj_slowd_period,
-            self.kdj_slowd_matype,
-            array=True
-            )
-        
-        self.k1 = self.slowk[-1]
-        self.k2 = self.slowk[-2]
-        self.d1 = self.slowd[-1]
-        self.d2 = self.slowd[-2]
-
-        self.kdj_cross_over = (self.k2 < self.d2 and self.k1 > self.d1)
-        self.kdj_cross_below = (self.k2 > self.d2 and self.k1 < self.d1)
 
         if self.pos == 0:            
             self.buy_price = bar.close_price + self.pricetick * self.pricetick_multilplier1
