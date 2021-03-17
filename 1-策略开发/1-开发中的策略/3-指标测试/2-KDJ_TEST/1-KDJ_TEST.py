@@ -1,10 +1,4 @@
 #%%
-# 通过以下代码验证talib.macd的使用方法
-# macd, signal, hist = talib.MACD(self.close, fast_period, slow_period, signal_period)
-# macd为 DIFF = EMA(close, 12) - EMA(close, 26)
-# signal为 DEA = EMA(DIFF, 9)
-# hist为 (DIFF - DEA)
-
 from typing import Any, Callable
 from vnpy.app.cta_strategy import (
     CtaTemplate,
@@ -15,7 +9,7 @@ from vnpy.app.cta_strategy import (
     OrderData
 )
 from vnpy.app.cta_strategy.base import StopOrderStatus, BacktestingMode
-from vnpy.app.cta_strategy.backtesting import BacktestingEngine, OptimizationSetting
+from vnpy.app.cta_strategy.backtestingHN import BacktestingEngine, OptimizationSetting
 from vnpy.trader.object import BarData, TickData
 from vnpy.trader.constant import Interval, Offset, Direction, Exchange, Status
 import numpy as np
@@ -24,10 +18,6 @@ from datetime import time as time1
 from datetime import datetime
 import time
 import talib
-
-from vnpy.trader.ui import create_qapp, QtCore
-from vnpy.chart import ChartWidget, VolumeItem, CandleItem
-
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 from matplotlib import style
@@ -39,31 +29,37 @@ import seaborn as sns
 sns.set()
 
 #%%
-class KdjMacdStrategy(CtaTemplate):
+class CCIStrategy(CtaTemplate):
     """"""
     author = "Huang Ning"
 
-    bar_window_length = 10
-
-    macd_fastk_period = 12
-    macd_slowk_period = 26
-    macd_signal_period = 9
-
-    macd = 0 
-    signal = 0 
-    hist = 0
+    bar_window_length = 3
+    
+    fastk_period = 9
+    slowk_period = 5
+    slowk_matype = 0
+    slowd_period = 5
+    slowd_matype = 0
+    
+    k1 = 0
+    k2 = 0
+    d1 = 0
+    d2 = 0
 
     parameters = [
         "bar_window_length",
-        "macd_fastk_period",
-        "macd_slowk_period",
-        "macd_signal_period"
+        "fastk_period",
+        "slowk_period",
+        "slowk_matype",
+        "slowd_period",
+        "slowd_matype"
     ]
 
     variables = [
-        "macd",
-        "signal",
-        "hist"
+        "k1",
+        "k2",
+        "d1",
+        "d2"
     ]
 
     def __init__(
@@ -80,7 +76,7 @@ class KdjMacdStrategy(CtaTemplate):
     def on_init(self):
         """"""
         self.write_log("策略初始化")
-        self.load_bar(10)
+        self.load_bar(1)
 
     def on_start(self):
         """"""
@@ -89,16 +85,15 @@ class KdjMacdStrategy(CtaTemplate):
     def on_stop(self):
         """"""
         self.write_log("策略停止")
-        print("策略停止")
         
     def on_tick(self, tick: TickData):
         """"""
         self.bg.update_tick(tick)
 
     def on_bar(self, bar: BarData):
-        """"""
+        """"""  
         self.bg.update_bar(bar)
-
+        
     def on_Xmin_bar(self, bar: BarData):
         """"""
         am = self.am
@@ -106,36 +101,29 @@ class KdjMacdStrategy(CtaTemplate):
         am.update_bar(bar)
         if not am.inited:
             return
+        
+        self.slowk, self.slowd, self.slowj = am.kdj(
+            self.fastk_period,
+            self.slowk_period,
+            self.slowk_matype,
+            self.slowd_period,
+            self.slowd_matype,
+            array=True
+            )
 
-        EMA1 = talib.EMA(am.close, 12)
-        EMA2 = talib.EMA(am.close, 26)
+        # self.slowk, self.slowd, self.slowj = am.kdjs(
+        #     9,
+        #     array=True
+        #     )
 
-        DIFF = EMA1 - EMA2
-        DEA = talib.EMA(DIFF, 9)
-        MACD = DIFF - DEA  # 其实应该是 (DIFF-DEA)*2
-
-        self.macd, self.signal, self.hist = am.macd(12, 26, 9, True)
-
-        print(f"EMA1:{EMA1[-1]}")
-        print(f"EMA2:{EMA2[-1]}")
-        print(f"百度定义中的DIFF:{DIFF[-1]}")
-        print(f"百度定义中的DEA:{DEA[-1]}")
-        print(f"百度定义中的MACD:{MACD[-1]}")
-
-        print(f"talib.macd:{self.macd[-1]}")
-        print(f"talib.signal:{self.signal[-1]}")
-        print(f"talib.hist:{self.hist[-1]}")
-
-    def on_stop_order(self, stop_order: StopOrder):
-        """"""
-
-    def on_trade(self, trade: TradeData):
-        """
-        Callback of new trade data update.
-        """
-
-    def on_order(self, order):
-        """"""
+        # self.k.append(self.slowk[-1])
+        # self.d.append(self.slowd[-1])
+        # self.j.append(self.slowj[-1])
+        
+        self.k1 = self.slowk[-1]
+        self.k2 = self.slowk[-2]
+        self.d1 = self.slowd[-1]
+        self.d2 = self.slowd[-2]
 
 
 class NewArrayManager(ArrayManager):
@@ -143,6 +131,19 @@ class NewArrayManager(ArrayManager):
     def __init__(self, size=100):
         """"""
         super().__init__(size)
+
+        self.slowk = np.array([50.00, 50.00])
+        self.slowd = np.array([50.00, 50.00])
+        self.slowj = np.array([50.00, 50.00])
+
+        self.K: float = 50.00
+        self.D: float = 50.00
+        self.J: float = 50.00
+
+        self.H: float = 0
+        self.L: float = 0
+        self.C: float = 0
+        self.RSV: float = 0
 
     def kdj(
         self, 
@@ -169,6 +170,47 @@ class NewArrayManager(ArrayManager):
             return slowk, slowd, slowj
         return slowk[-1], slowd[-1], slowj[-1]
 
+    def kdj_weighted(
+        self,
+        fastk_period, 
+        array=False
+        ):
+        """"""
+        high_array_kdj = self.high[-fastk_period:]
+        low_array_kdj = self.low[-fastk_period:]
+        close_array_kdj = self.close[-fastk_period:]
+
+        volume_array_kdj = self.volume[-fastk_period:]
+        total_volume = volume_array_kdj.sum()
+        volume_array_kdj_wa = volume_array_kdj/total_volume
+
+        high_array_kdj_wa = np.multiply(high_array_kdj, volume_array_kdj_wa)
+        low_array_kdj_wa = np.multiply(low_array_kdj, volume_array_kdj_wa)
+        close_array_kdj_wa = np.multiply(close_array_kdj, volume_array_kdj_wa)
+
+        self.H = max(high_array_kdj_wa)
+        self.L = min(low_array_kdj_wa)
+        self.C = close_array_kdj_wa[-1]
+        self.RSV = (self.C-self.L)*100/(self.H-self.L)
+
+        # 无第1日K值，设为50
+        self.K = self.K*2/3 + self.RSV*1/3
+        self.D = self.D*2/3 + self.K*1/3
+        self.J = 3 * self.K - 2 * self.D
+
+        self.slowk[:-1] = self.slowk[1:]
+        self.slowd[:-1] = self.slowd[1:]
+        self.slowj[:-1] = self.slowj[1:]
+
+        self.slowk[-1] = self.K
+        self.slowd[-1] = self.D
+        self.slowj[-1] = self.J
+
+        if array:
+            return self.slowk, self.slowd, self.slowj
+        return self.slowk[-1], self.slowd[-1], self.slowj[-1]
+
+
 class XminBarGenerator(BarGenerator):
     def __init__(
         self,
@@ -183,6 +225,8 @@ class XminBarGenerator(BarGenerator):
         """
         Update 1 minute bar into generator
         """
+        # and (bar.exchange in [Exchange.SHFE, Exchange.DCE, Exchange.CZCE])
+        # print(f"bar.datetime.time:{bar.datetime.time()}")
         # If not inited, creaate window bar object
         if not self.window_bar:
             # Generate timestamp for bar data
@@ -261,18 +305,18 @@ class XminBarGenerator(BarGenerator):
 start1 = time.time()
 engine = BacktestingEngine()
 engine.set_parameters(
-    vt_symbol="rb888.SHFE",
+    vt_symbol="rb2010.SHFE",
     interval="1m",
-    start=datetime(2020, 3, 9),
-    end=datetime(2020, 4, 9),
+    start=datetime(2019, 10, 15),
+    end=datetime(2020,10,15),
     rate=0.0001,
-    slippage=2.0,
+    slippage=2,
     size=10,
-    pricetick=1.0,
+    pricetick=1,
     capital=1_000_000,
     mode=BacktestingMode.BAR
 )
-engine.add_strategy(KdjMacdStrategy, {})
+engine.add_strategy(CCIStrategy, {})
 #%%
 start2 = time.time()
 engine.load_data()
@@ -290,11 +334,11 @@ engine.show_chart()
 #%%
 # setting = OptimizationSetting()
 # setting.set_target("end_balance")
-# setting.add_parameter("bar_window_length", 1, 15, 1)
-# setting.add_parameter("pricetick_multilplier1", 1, 10, 1)
-# setting.add_parameter("macd_fastk_period", 4, 20, 2)
-# setting.add_parameter("macd_slowk_period", 21, 30, 1)
-# setting.add_parameter("macd_signal_period", 4, 12, 2)
+# setting.add_parameter("bar_window_length", 1, 20, 1)
+# setting.add_parameter("cci_window", 3, 10, 1)
+# setting.add_parameter("fixed_size", 1, 1, 1)
+# setting.add_parameter("sell_multipliaer", 0.80, 0.99, 0.01)
+# setting.add_parameter("cover_multiplier", 1.01, 1.20, 0.01)
+# setting.add_parameter("pricetick_multiplier", 1, 5, 1)
 #%%
 # engine.run_optimization(setting, output=True)
-# %%
