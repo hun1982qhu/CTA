@@ -13,3 +13,4 @@ sudo chown huangning /Users/huangning/数据库/var/log/mongodb
 
 启动mongodb
 mongod --dbpath /Users/huangning/数据库/var/mongodb --logpath /Users/huangning/数据库/var/log/mongodb/mongo.log --fork
+
