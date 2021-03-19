@@ -125,7 +125,6 @@ class CCIMACDStrategy(CtaTemplate):
     def on_bar(self, bar: BarData):
         """"""
         self.bg.update_bar(bar)
-        # print(bar.datetime)
 
         active_stop_orders = self.cta_engine.active_stop_orders
         if active_stop_orders:    
