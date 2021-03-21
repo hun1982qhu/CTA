@@ -9,7 +9,7 @@ from vnpy.app.cta_strategy import (
     OrderData
 )
 from vnpy.app.cta_strategy.base import StopOrderStatus, BacktestingMode
-from vnpy.app.cta_strategy.backtestingHN import BacktestingEngine, OptimizationSetting
+from vnpy.app.cta_strategy.backtesting import BacktestingEngine, OptimizationSetting
 from vnpy.trader.object import BarData, TickData
 from vnpy.trader.constant import Interval, Offset, Direction, Exchange, Status
 import numpy as np
@@ -392,6 +392,7 @@ class CCIStrategy(CtaTemplate):
 
     def on_order(self, order):
         """"""
+        print(order)
         if order.status == Status.CANCELLED:
             self.ordercount += 1
 

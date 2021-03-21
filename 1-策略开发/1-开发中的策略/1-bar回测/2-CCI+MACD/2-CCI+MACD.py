@@ -38,7 +38,7 @@ class CCIMACDStrategy(CtaTemplate):
     author = "Huang Ning"
 
     bar_window_length = 3
-    fixed_size = 1
+    fixed_size = 10
     cci_window = 3
     macd_fastk_period = 5
     macd_slowk_period = 12
@@ -47,7 +47,6 @@ class CCIMACDStrategy(CtaTemplate):
     pricetick_multilplier1 = 1
     pricetick_multilplier2 = 0
     
-
     diff = 0 
     dea = 0 
     macd = 0
@@ -104,6 +103,16 @@ class CCIMACDStrategy(CtaTemplate):
         self.intra_macd_high = 0
         self.intra_macd_low = 0
 
+        self.macd_high_downtrend = False
+        self.macd_low_uptrend = False
+
+        self.chase_trigger = False
+
+        self.count1 = 0
+        self.count2 = 0
+        self.count3 = 0
+        self.count4 = 0
+
     def on_init(self):
         """"""
         self.write_log("策略初始化")
@@ -125,28 +134,29 @@ class CCIMACDStrategy(CtaTemplate):
     def on_bar(self, bar: BarData):
         """"""
         self.bg.update_bar(bar)
-        # print(bar.datetime)
+        print(f"self.pos:{self.pos}")
 
         active_stop_orders = self.cta_engine.active_stop_orders
-        if active_stop_orders:    
+
+        if active_stop_orders and not self.chase_trigger:    
             stop_orderid = list(active_stop_orders.keys())[0]
             stop_order = list(active_stop_orders.values())[0]
 
+            self.cancel_order(stop_orderid)
+
             if stop_order.direction == Direction.LONG and stop_order.offset == Offset.OPEN:
-                self.cancel_order(stop_orderid)
                 self.buy(bar.close_price + self.pricetick * self.pricetick_multilplier2, self.fixed_size, True)
             
             elif stop_order.direction == Direction.SHORT and stop_order.offset == Offset.OPEN:
-                self.cancel_order(stop_orderid)
                 self.short(bar.close_price - self.pricetick * self.pricetick_multilplier2, self.fixed_size, True)
             
             elif stop_order.direction == Direction.LONG and stop_order.offset == Offset.CLOSE:
-                self.cancel_order(stop_orderid)
                 self.sell(bar.close_price - self.pricetick * self.pricetick_multilplier2, self.fixed_size, True)
 
             elif stop_order.direction == Direction.SHORT and stop_order.offset == Offset.CLOSE:
-                self.cancel_order(stop_orderid)
                 self.cover(bar.close_price + self.pricetick * self.pricetick_multilplier2, self.fixed_size, True)
+            
+            self.chase_trigger = True
 
     def on_Xmin_bar(self, bar: BarData):
         """"""
@@ -156,22 +166,32 @@ class CCIMACDStrategy(CtaTemplate):
         if not am.inited:
             return
 
+        self.chase_trigger = False
+
+        # 计算macd指标
         diff, dea, macd = am.macd(self.macd_fastk_period, self.macd_slowk_period, self.macd_dea_period, True)
         self.diff = diff[-1]
         self.dea = dea[-1]
         self.macd = macd[-1]
 
+        # diff线由在dea线之下变为在dea线之上，表示市场行情由弱转强
         self.macd_cross_over = (macd[-2] < 0 and macd[-1] > 0)
+        # diff线由在dea线之上变为在dea线之下，表示市场行情由强转弱
         self.macd_cross_below = (macd[-2] > 0 and macd[-1] < 0)
 
+        # 计算cci指标
         cci = am.cci(self.cci_window, True)
 
+        # cci线上穿100线，说明市场行情进入明显上升趋势，此时应顺势买入
         self.cci_crossover_100 = (cci[-2] < 100 and cci[-1] > 100)
+        # cci线下穿100线，说明市场行情上升趋势已经结束，此时应顺势卖出
         self.cci_crossbelow_100 = (cci[-2] > 100 and cci[-1] < 100)
+        # cci线上穿-100线，说明市场行情开始回调，应该顺势买入
         self.cci_crossover_m100 = (cci[-2] < -100 and cci[-1] > -100)
+        # cci线下穿-100线，说明市场行情进入明显下跌趋势，应该顺势卖出
         self.cci_crossbelow_m100 = (cci[-2] > -100 and cci[-1] < -100)  
 
-        if self.pos == 0:            
+        if self.pos == 0:
             self.buy_price = bar.close_price + self.pricetick * self.pricetick_multilplier1
             self.sell_price = 0
             self.short_price = bar.close_price - self.pricetick * self.pricetick_multilplier1
@@ -190,6 +210,7 @@ class CCIMACDStrategy(CtaTemplate):
             self.cover_price = bar.close_price + self.pricetick * self.pricetick_multilplier1
 
         if self.pos == 0:
+            # 用于缓存持仓期间最高或最低macd值
             self.intra_macd_high = self.macd
             self.intra_macd_low = self.macd
 
@@ -210,22 +231,30 @@ class CCIMACDStrategy(CtaTemplate):
                     self.cancel_order(vt_orderid)
 
         elif self.pos > 0:
+            # 缓存持多仓期间macd最大值
             self.intra_macd_high = max(self.intra_macd_high, self.macd)
+            # 判断macd值低于持多仓期间macd最值的90%
+            self.macd_high_downtrend = (self.macd <= self.intra_macd_high * self.macd_drawback_pct)
 
             if not self.sell_vt_orderids:
-                if self.macd <= self.intra_macd_high * self.macd_drawback_pct or self.cci_crossbelow_100 or self.cci_crossbelow_m100:
-                    self.short_vt_orderids = self.short(self.short_price, self.fixed_size, True)
+                # 当macd值低于最高值的90%，或者cci下穿100线，或者cci下穿-100线，就平多仓
+                if self.macd_high_downtrend or self.cci_crossbelow_100 or self.cci_crossbelow_m100:
+                    self.sell_vt_orderids = self.sell(self.short_price, self.fixed_size, True)
                     self.short_price = 0
             else:
                 for vt_orderid in self.sell_vt_orderids:
                     self.cancel_order(vt_orderid)
                     
         else:
-            self.intra_macd_low = min(self.intra_macd_low, self.macd)
-
+            # 缓存持空仓期间macd最小值
+            self.intra_macd_low = min(self.intra_macd_low, self.macd)        
+            # 判断macd值高于持空仓期间macd最值的90%
+            self.macd_low_uptrend = (self.macd >= self.intra_macd_low * self.macd_drawback_pct)
+            
             if not self.cover_vt_orderids:
-                if self.macd >= self.intra_macd_low * self.macd_drawback_pct or self.cci_crossover_100 or self.cci_crossover_m100:
-                    self.cover_vt_orderids = self.cover(self.cover_price, abs(self.pos), True)
+                # 当macd值高于最低值的90%，或者cci上穿100线，或者cci上穿-100线，就平多仓
+                if self.macd_low_uptrend or self.cci_crossover_100 or self.cci_crossover_m100:
+                    self.cover_vt_orderids = self.cover(self.cover_price, self.fixed_size, True)
                     self.cover_price = 0
             else:
                 for vt_orderid in self.cover_vt_orderids:
@@ -250,36 +279,43 @@ class CCIMACDStrategy(CtaTemplate):
             if stop_order.stop_orderid in buf_orderids:
                 buf_orderids.remove(stop_order.stop_orderid)
 
+        # if stop_order.status == StopOrderStatus.CANCELLED:
+        #     print(f"self.pos:{self.pos}")
+        #     if self.pos == 0:
+        #         if not self.buy_vt_orderids:
+        #             if (self.cci_crossover_100 or self.cci_crossover_m100) and self.macd_cross_over:
+        #                 self.buy_vt_orderids = self.buy(self.buy_price, self.fixed_size, True)
+        #                 self.buy_price = 0
+        #                 self.count1 += 1
+        #                 print(f"buy:{self.count1}")    
+                    
+        #         if not self.short_vt_orderids:
+        #             if (self.cci_crossbelow_100 or self.cci_crossbelow_m100) and self.macd_cross_below:
+        #                 self.short_vt_orderids = self.short(self.short_price, self.fixed_size, True)
+        #                 self.short_price = 0
+        #                 self.count2 += 1
+        #                 print(f"short:{self.count2}")
+
+        #     elif self.pos > 0:
+        #         if not self.sell_vt_orderids:
+        #             if self.macd_high_downtrend or self.cci_crossbelow_100 or self.cci_crossbelow_m100:
+        #                 self.sell_vt_orderids = self.sell(self.short_price, self.fixed_size, True)
+        #                 self.short_price = 0
+        #                 self.count3 += 1
+        #                 print(f"sell:{self.count3}")
+                        
+        #     else:
+        #         if not self.cover_vt_orderids:
+        #             if self.macd_low_uptrend or self.cci_crossover_100 or self.cci_crossover_m100:
+        #                 self.cover_vt_orderids = self.cover(self.cover_price, self.fixed_size, True)
+        #                 self.cover_price = 0
+        #                 self.count4 += 1
+        #                 print(f"cover:{self.count4}")
+
     def on_trade(self, trade: TradeData):
         """
         Callback of new trade data update.
         """
-        # 发出新的委托
-        if self.pos == 0:
-            if not self.buy_vt_orderids:
-                if (self.cci_crossover_100 or self.cci_crossover_m100) and self.macd_cross_over:
-                    self.buy_vt_orderids = self.buy(self.buy_price, self.fixed_size, True)
-                    self.buy_price = 0
-                   
-            if not self.short_vt_orderids:
-                if (self.cci_crossbelow_100 or self.cci_crossbelow_m100) and self.macd_cross_below:
-                    self.short_vt_orderids = self.short(self.short_price, self.fixed_size, True)
-                    self.short_price = 0
-
-        elif self.pos > 0:
-            if not self.sell_vt_orderids:
-                if self.macd <= self.intra_macd_high * self.macd_drawback_pct or self.cci_crossbelow_100 or self.cci_crossbelow_m100:
-                    self.short_vt_orderids = self.short(self.short_price, self.fixed_size, True)
-                    self.short_price = 0
-                    
-        else:
-            if not self.cover_vt_orderids:
-                if self.macd >= self.intra_macd_low * self.macd_drawback_pct or self.cci_crossover_100 or self.cci_crossover_m100:
-                    self.cover_vt_orderids = self.cover(self.cover_price, abs(self.pos), True)
-                    self.cover_price = 0
-
-    def on_order(self, order):
-        """"""
 
 
 class NewArrayManager(ArrayManager):
@@ -407,16 +443,16 @@ engine = BacktestingEngine()
 engine.set_parameters(
     vt_symbol="rb888.SHFE",
     interval="1m",
-    start=datetime(2019, 1, 9),
+    start=datetime(2020, 1, 1),
     end=datetime(2021, 4, 8),
     rate=0.0001,
     slippage=2.0,
     size=10,
     pricetick=1.0,
-    capital=1_000_000,
+    capital=50000,
     mode=BacktestingMode.BAR
 )
-engine.add_strategy(KdjMacdStrategy, {})
+engine.add_strategy(CCIMACDStrategy, {})
 #%%
 start2 = time.time()
 engine.load_data()
