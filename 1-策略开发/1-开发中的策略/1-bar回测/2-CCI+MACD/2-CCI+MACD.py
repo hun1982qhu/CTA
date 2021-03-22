@@ -134,29 +134,28 @@ class CCIMACDStrategy(CtaTemplate):
     def on_bar(self, bar: BarData):
         """"""
         self.bg.update_bar(bar)
+
         print(f"self.pos:{self.pos}")
 
-        active_stop_orders = self.cta_engine.active_stop_orders
+        # active_stop_orders = self.cta_engine.active_stop_orders
 
-        if active_stop_orders and not self.chase_trigger:    
-            stop_orderid = list(active_stop_orders.keys())[0]
-            stop_order = list(active_stop_orders.values())[0]
+        # if active_stop_orders:    
+        #     stop_orderid = list(active_stop_orders.keys())[0]
+        #     stop_order = list(active_stop_orders.values())[0]
 
-            self.cancel_order(stop_orderid)
+        #     self.cancel_order(stop_orderid)            
 
-            if stop_order.direction == Direction.LONG and stop_order.offset == Offset.OPEN:
-                self.buy(bar.close_price + self.pricetick * self.pricetick_multilplier2, self.fixed_size, True)
+        #     if stop_order.direction == Direction.LONG and stop_order.offset == Offset.OPEN:
+        #         self.buy(bar.close_price + self.pricetick * self.pricetick_multilplier2, self.fixed_size, True)
             
-            elif stop_order.direction == Direction.SHORT and stop_order.offset == Offset.OPEN:
-                self.short(bar.close_price - self.pricetick * self.pricetick_multilplier2, self.fixed_size, True)
+        #     elif stop_order.direction == Direction.SHORT and stop_order.offset == Offset.OPEN:
+        #         self.short(bar.close_price - self.pricetick * self.pricetick_multilplier2, self.fixed_size, True)
             
-            elif stop_order.direction == Direction.LONG and stop_order.offset == Offset.CLOSE:
-                self.sell(bar.close_price - self.pricetick * self.pricetick_multilplier2, self.fixed_size, True)
+        #     elif stop_order.direction == Direction.LONG and stop_order.offset == Offset.CLOSE:
+        #         self.sell(bar.close_price - self.pricetick * self.pricetick_multilplier2, self.fixed_size, True)
 
-            elif stop_order.direction == Direction.SHORT and stop_order.offset == Offset.CLOSE:
-                self.cover(bar.close_price + self.pricetick * self.pricetick_multilplier2, self.fixed_size, True)
-            
-            self.chase_trigger = True
+        #     elif stop_order.direction == Direction.SHORT and stop_order.offset == Offset.CLOSE:
+        #         self.cover(bar.close_price + self.pricetick * self.pricetick_multilplier2, self.fixed_size, True)
 
     def on_Xmin_bar(self, bar: BarData):
         """"""
