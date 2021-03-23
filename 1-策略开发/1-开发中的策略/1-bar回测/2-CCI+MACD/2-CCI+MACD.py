@@ -134,8 +134,7 @@ class CCIMACDStrategy(CtaTemplate):
     def on_bar(self, bar: BarData):
         """"""
         self.bg.update_bar(bar)
-<<<<<<< HEAD
-        print(bar.datetime)
+        # print(bar.datetime)
         # print(f"self.pos:{self.pos}")
 
         # active_stop_orders = self.cta_engine.active_stop_orders
@@ -145,18 +144,6 @@ class CCIMACDStrategy(CtaTemplate):
         #     stop_order = list(active_stop_orders.values())[0]
 
         #     self.cancel_order(stop_orderid)
-=======
-
-        print(f"self.pos:{self.pos}")
-
-        # active_stop_orders = self.cta_engine.active_stop_orders
-
-        # if active_stop_orders:    
-        #     stop_orderid = list(active_stop_orders.keys())[0]
-        #     stop_order = list(active_stop_orders.values())[0]
-
-        #     self.cancel_order(stop_orderid)            
->>>>>>> 8dfda32bb043c7c72952e8fd2795e82c1602be03
 
         #     if stop_order.direction == Direction.LONG and stop_order.offset == Offset.OPEN:
         #         self.buy(bar.close_price + self.pricetick * self.pricetick_multilplier2, self.fixed_size, True)
@@ -169,11 +156,8 @@ class CCIMACDStrategy(CtaTemplate):
 
         #     elif stop_order.direction == Direction.SHORT and stop_order.offset == Offset.CLOSE:
         #         self.cover(bar.close_price + self.pricetick * self.pricetick_multilplier2, self.fixed_size, True)
-<<<<<<< HEAD
             
         #     self.chase_trigger = True
-=======
->>>>>>> 8dfda32bb043c7c72952e8fd2795e82c1602be03
 
     def on_Xmin_bar(self, bar: BarData):
         """"""
@@ -333,7 +317,8 @@ class CCIMACDStrategy(CtaTemplate):
         """
         Callback of new trade data update.
         """
-        print(f"self.pos:{self.pos}")
+        # print(f"self.pos:{self.pos}")
+        print(trade.orderid)
 
 
 class NewArrayManager(ArrayManager):
