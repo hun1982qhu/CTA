@@ -136,13 +136,16 @@ class CCIMACDStrategy(CtaTemplate):
         self.bg.update_bar(bar)
         # 
         # print(bar.datetime)
-        print(f"self.pos:{self.pos}")
+        # print(f"self.pos:{self.pos}")
 
         active_stop_orders = self.cta_engine.active_stop_orders
 
         if active_stop_orders and self.chase_trigger:    
             stop_orderid = list(active_stop_orders.keys())[0]
             stop_order = list(active_stop_orders.values())[0]
+            
+            if len(list(active_stop_orders.keys())) >= 2:
+                print("list(active_stop_orders.keys())长度超过1")
 
             self.cancel_order(stop_orderid)
 
