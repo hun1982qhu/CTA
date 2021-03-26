@@ -134,32 +134,32 @@ class CCIMACDStrategy(CtaTemplate):
     def on_bar(self, bar: BarData):
         """"""
         self.bg.update_bar(bar)
-        # 
         # print(bar.datetime)
         # print(f"self.pos:{self.pos}")
-
+        count = 0
+       
         active_stop_orders = self.cta_engine.active_stop_orders
 
         if active_stop_orders and self.chase_trigger:    
             stop_orderid = list(active_stop_orders.keys())[0]
             stop_order = list(active_stop_orders.values())[0]
             
-            if len(list(active_stop_orders.keys())) >= 2:
-                print("list(active_stop_orders.keys())长度超过1")
-
-            self.cancel_order(stop_orderid)
+            for orderid in list(active_stop_orders.keys()):
+                count += 1
+                print(count, orderid)
+                self.cancel_order(orderid)
 
             if stop_order.direction == Direction.LONG and stop_order.offset == Offset.OPEN:
-                self.buy(bar.close_price + self.pricetick * self.pricetick_multilplier2, self.fixed_size, True)
+                self.buy_vt_orderids = self.buy(bar.close_price + self.pricetick * self.pricetick_multilplier2, self.fixed_size, True)
             
             elif stop_order.direction == Direction.SHORT and stop_order.offset == Offset.OPEN:
-                self.short(bar.close_price - self.pricetick * self.pricetick_multilplier2, self.fixed_size, True)
+                self.short_vt_orderids = self.short(bar.close_price - self.pricetick * self.pricetick_multilplier2, self.fixed_size, True)
             
             elif stop_order.direction == Direction.LONG and stop_order.offset == Offset.CLOSE:
-                self.sell(bar.close_price - self.pricetick * self.pricetick_multilplier2, self.fixed_size, True)
+                self.sell_vt_orderids = self.sell(bar.close_price - self.pricetick * self.pricetick_multilplier2, self.fixed_size, True)
 
             elif stop_order.direction == Direction.SHORT and stop_order.offset == Offset.CLOSE:
-                self.cover(bar.close_price + self.pricetick * self.pricetick_multilplier2, self.fixed_size, True)
+                self.cover_vt_orderids = self.cover(bar.close_price + self.pricetick * self.pricetick_multilplier2, self.fixed_size, True)
             
             self.chase_trigger = False
 
