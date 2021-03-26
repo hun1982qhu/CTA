@@ -257,7 +257,7 @@ def on_tick(self, tick: TickData):
                         self.chase_short_trigger = True
             #平仓追单
             elif order.offset in (Offset.CLOSE, Offset.CLOSETODAY):
-                if order.direction == Direction.SHORT: 
+                if order.direction == Direction.SHORT:
                     self.sell_trade_volume = order.untraded
                     if (tick.datetime - order.datetime).seconds > self.chase_interval and self.sell_trade_volume > 0 and (not self.chase_sell_trigger) and vt_orderid: 
                         self.cancel_order(vt_orderid)
@@ -269,6 +269,7 @@ def on_tick(self, tick: TickData):
                         self.chase_cover_trigger = True
         else:
             order_finished = True
+            
         if self.chase_long_trigger and order_finished:
             self.buy(tick.ask_price_1, self.long_trade_volume)
             self.chase_long_trigger = False
