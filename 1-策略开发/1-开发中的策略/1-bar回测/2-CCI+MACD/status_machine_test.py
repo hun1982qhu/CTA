@@ -113,9 +113,19 @@ class CCIMACDStrategy(CtaTemplate):
         self.count3 = 0
         self.count4 = 0
 
-        self.wrong_pos_count = 0
+        self.active_count = 0
+        self.none_count = 0
+        self.bar_window_count = 0
 
-        self.twotimes_active_count = 0
+        self.active_order_test = 0
+
+        self.stoporderid_count1 = 0
+        self.stoporderid_count2 = 0
+
+        self.stopordercount1 = 1
+        self.stopordercount2 = 1
+        self.stopordercount3 = 1
+        self.stopordercount4 = 1
 
     def on_init(self):
         """"""
@@ -131,8 +141,22 @@ class CCIMACDStrategy(CtaTemplate):
         self.write_log("策略停止")
         print("策略停止")
 
-        print(f"self.twotimes_active_count:{self.twotimes_active_count}")
-        
+        # total_count = self.active_count + self.none_count
+
+        # active_count_pct = self.active_count/total_count
+        # none_count_pct = self.none_count/total_count        
+
+        # print(f"active_count_pct:{active_count_pct},none_count_pct:{none_count_pct}")
+        # print(f"active_order_test:{self.active_order_test}")
+
+        # # if self.stoporderid_count1 == self.stoporderid_count2:
+        # #     print("cancel_order有效")
+
+        # print(f"stopordercount1:{self.stopordercount1}")
+        # print(f"stopordercount2:{self.stopordercount2}")
+        # print(f"stopordercount3:{self.stopordercount3}")
+        # print(f"stopordercount4:{self.stopordercount4}")
+
     def on_tick(self, tick: TickData):
         """"""
         self.bg.update_tick(tick)
@@ -140,66 +164,87 @@ class CCIMACDStrategy(CtaTemplate):
     def on_bar(self, bar: BarData):
         """"""
         self.bg.update_bar(bar)
+        
+        self.bar_window_count += 1
+        if self.bar_window_count == 1:
+            print(f"bar_window_count:{self.bar_window_count}")
 
-        # print(bar.datetime)
+        # # print(bar.datetime)
         print(f"self.pos:{self.pos}")
 
-        active_stop_orders = self.cta_engine.active_stop_orders
+        if self.cta_engine.active_stop_orders:    
+            stop_orderid = list(self.cta_engine.active_stop_orders.keys())[0]
+            stop_order = list(self.cta_engine.active_stop_orders.values())[0]
+            print(stop_orderid)
 
-        if active_stop_orders:    
-            stop_orderid = list(active_stop_orders.keys())[0]
-            stop_order = list(active_stop_orders.values())[0]
+        #     # if len(list(active_stop_orders.keys())) >= 1:
+        #         # print(f"活动委托列表长度:{len(list(active_stop_orders.keys()))}")
+        #     if len(list(self.cta_engine.active_stop_orders.keys())) >= 2:
+        #         self.active_order_test +=1
 
-            if len(list(active_stop_orders.keys())) >= 1:
-                print(f"活动委托列表长度:{len(list(active_stop_orders.keys()))}")
-                self.twotimes_active_count += 1
+        #     self.active_count += 1
+            # print("有尚未成交的委托")
 
-            for orderid in list(active_stop_orders.keys()):
-                self.cancel_order(orderid)
+            # for orderid in list(active_stop_orders.keys()):
+            #     self.cancel_order(orderid)
+
+            # for orderid in list(self.cta_engine.active_stop_orders.keys()):
+            #     self.stoporderid = orderid
+            #     self.stoporderid_count1 += 1
+            #     print(orderid)
+            #     self.cancel_order(orderid)
             
-            if self.pos == 0:
-                if not self.buy_vt_orderids:
-                    if (self.cci_crossover_100 or self.cci_crossover_m100) and self.macd_cross_over:
-                    # if stop_order.direction == Direction.LONG and stop_order.offset == Offset.OPEN:
-                        # print(f"buy_stop_order:{stop_order.direction, stop_order.offset}")
-                        self.buy_vt_orderids = self.buy(bar.close_price + self.pricetick * self.pricetick_multilplier2, self.fixed_size, True)
-                else:
-                    for vt_orderid in self.buy_vt_orderids:
-                        self.cancel_order(vt_orderid)    
-      
-                if not self.short_vt_orderids:
-                    if (self.cci_crossbelow_100 or self.cci_crossbelow_m100) and self.macd_cross_below:
-                    # elif stop_order.direction == Direction.SHORT and stop_order.offset == Offset.OPEN:
-                        # print(f"short_stop_order:{stop_order.direction, stop_order.offset}")
-                        self.short_vt_orderids = self.short(bar.close_price - self.pricetick * self.pricetick_multilplier2, self.fixed_size, True)
-                else:
-                    for vt_orderid in self.short_vt_orderids:
-                        self.cancel_order(vt_orderid)
+            # print(stop_order)
+            
+        if self.buy_vt_orderids:
+            # if stop_order.direction == Direction.LONG and stop_order.offset == Offset.OPEN:
+            #     self.stopordercount1 += 1
+            #     print(1, stop_order.direction, stop_order.offset, stop_order.status)
+            print(1)
+            for vt_orderid in self.buy_vt_orderids:
+                self.cancel_order(vt_orderid)
+            self.buy_vt_orderids = self.buy(bar.close_price + self.pricetick * self.pricetick_multilplier2, self.fixed_size, True)
+            
+        elif self.short_vt_orderids:
+            # elif stop_order.direction == Direction.SHORT and stop_order.offset == Offset.OPEN:
+            #     self.stopordercount2 += 1
+            #     print(2, stop_order.direction, stop_order.offset)
+            print(2)    
+            for vt_orderid in self.short_vt_orderids:
+                self.cancel_order(vt_orderid)
+            self.short_vt_orderids = self.short(bar.close_price - self.pricetick * self.pricetick_multilplier2, self.fixed_size, True)
 
-            elif self.pos > 0:
-                if not self.sell_vt_orderids:
-                    # 当macd值低于最高值的90%，或者cci下穿100线，或者cci下穿-100线，就平多仓
-                    if self.macd_high_downtrend or self.cci_crossbelow_100 or self.cci_crossbelow_m100:
-                    # elif stop_order.direction == Direction.LONG and stop_order.offset == Offset.CLOSE:
-                        # print(f"sell_stop_order:{stop_order.direction, stop_order.offset}")
-                        self.sell_vt_orderids = self.sell(bar.close_price - self.pricetick * self.pricetick_multilplier2, self.fixed_size, True)
-                else:
-                    for vt_orderid in self.sell_vt_orderids:
-                        self.cancel_order(vt_orderid)
+        elif self.sell_vt_orderids:
+            # elif stop_order.direction == Direction.LONG and stop_order.offset == Offset.CLOSE:
+            #     self.stopordercount3 += 1
+            #     print(3, stop_order.direction, stop_order.offset)
+            print(3)
+            for vt_orderid in self.sell_vt_orderids:
+                self.cancel_order(vt_orderid)
+            self.sell_vt_orderids = self.sell(bar.close_price - self.pricetick * self.pricetick_multilplier2, self.fixed_size, True)
 
-            else:
-                if not self.cover_vt_orderids:
-                    # 当macd值高于最低值的90%，或者cci上穿100线，或者cci上穿-100线，就平多仓
-                    if self.macd_low_uptrend or self.cci_crossover_100 or self.cci_crossover_m100:
-                    # elif stop_order.direction == Direction.SHORT and stop_order.offset == Offset.CLOSE:
-                        # print(f"cover_stop_order:{stop_order.direction, stop_order.offset}")
-                        self.cover_vt_orderids = self.cover(bar.close_price + self.pricetick * self.pricetick_multilplier2, self.fixed_size, True)  
-                else:
-                    for vt_orderid in self.cover_vt_orderids:
-                        self.cancel_order(vt_orderid)
+        elif self.cover_vt_orderids:
+        #     if stop_order.direction == Direction.SHORT and stop_order.offset == Offset.CLOSE:
+        #         self.stopordercount4 += 1
+        #         print(4, stop_order.direction, stop_order.offset)
+            print(4)
+            for vt_orderid in self.cover_vt_orderids:
+                self.cancel_order(vt_orderid)
+            self.cover_vt_orderids = self.cover(bar.close_price + self.pricetick * self.pricetick_multilplier2, self.fixed_size, True)
+        #     else:
+        #         print(stop_order)
+  
+        # else:
+        #     self.none_count += 1
+        #     print("没有活动委托")
+
+        if self.bar_window_count == self.bar_window_length:
+            print(f"bar_window_count:{self.bar_window_count}")          
 
     def on_Xmin_bar(self, bar: BarData):
         """"""
+        self.bar_window_count = 0
+
         am = self.am
 
         am.update_bar(bar)
@@ -255,7 +300,8 @@ class CCIMACDStrategy(CtaTemplate):
             if not self.buy_vt_orderids:
                 if (self.cci_crossover_100 or self.cci_crossover_m100) and self.macd_cross_over:
                     self.buy_vt_orderids = self.buy(self.buy_price, self.fixed_size, True)
-                    self.buy_price = 0      
+                    # print(self.buy_vt_orderids)
+                    self.buy_price = 0     
             else:
                 for vt_orderid in self.buy_vt_orderids:
                     self.cancel_order(vt_orderid)
@@ -277,8 +323,8 @@ class CCIMACDStrategy(CtaTemplate):
             if not self.sell_vt_orderids:
                 # 当macd值低于最高值的90%，或者cci下穿100线，或者cci下穿-100线，就平多仓
                 if self.macd_high_downtrend or self.cci_crossbelow_100 or self.cci_crossbelow_m100:
-                    self.sell_vt_orderids = self.sell(self.short_price, self.fixed_size, True)
-                    self.short_price = 0
+                    self.sell_vt_orderids = self.sell(self.sell_price, self.fixed_size, True)
+                    self.sell_price = 0
             else:
                 for vt_orderid in self.sell_vt_orderids:
                     self.cancel_order(vt_orderid)
@@ -297,8 +343,6 @@ class CCIMACDStrategy(CtaTemplate):
             else:
                 for vt_orderid in self.cover_vt_orderids:
                     self.cancel_order(vt_orderid)
-
-        self.put_event()
                 
     def on_stop_order(self, stop_order: StopOrder):
         """"""
@@ -315,6 +359,9 @@ class CCIMACDStrategy(CtaTemplate):
             self.cover_vt_orderids
         ]:
             if stop_order.stop_orderid in buf_orderids:
+                # if stop_order.stop_orderid == self.stoporderid:
+                #     self.stoporderid_count2 += 1
+                print(f"要移除的委托号:{stop_order.stop_orderid}")
                 buf_orderids.remove(stop_order.stop_orderid)
 
         # if stop_order.status == StopOrderStatus.CANCELLED:
