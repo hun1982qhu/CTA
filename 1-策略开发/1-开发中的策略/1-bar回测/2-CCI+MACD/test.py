@@ -1,3 +1,3 @@
-list1 = [1, 2, 3]
-list1 = [4, 5, 6]
+list1 = ["a", "b", "c"]
+list1.remove("a")
 print(list1)
