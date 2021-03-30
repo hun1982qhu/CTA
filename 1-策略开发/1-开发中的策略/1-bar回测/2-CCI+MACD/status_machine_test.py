@@ -127,6 +127,8 @@ class CCIMACDStrategy(CtaTemplate):
         self.stopordercount3 = 1
         self.stopordercount4 = 1
 
+        self.untraded_stoporder = []
+
     def on_init(self):
         """"""
         self.write_log("策略初始化")
@@ -140,6 +142,7 @@ class CCIMACDStrategy(CtaTemplate):
         """"""
         self.write_log("策略停止")
         print("策略停止")
+        print(self.untraded_stoporder)
 
         # total_count = self.active_count + self.none_count
 
@@ -166,16 +169,30 @@ class CCIMACDStrategy(CtaTemplate):
         self.bg.update_bar(bar)
         
         self.bar_window_count += 1
-        if self.bar_window_count == 1:
-            print(f"bar_window_count:{self.bar_window_count}")
+        print(f"bar_window_count:{self.bar_window_count}")
 
         # # print(bar.datetime)
         print(f"self.pos:{self.pos}")
 
+        
+        if not self.untraded_stoporder:
+            return
+        else:
+            print(f"untraded_stoporder:{self.untraded_stoporder[-1]}")
+
         if self.cta_engine.active_stop_orders:    
             stop_orderid = list(self.cta_engine.active_stop_orders.keys())[0]
             stop_order = list(self.cta_engine.active_stop_orders.values())[0]
-            print(stop_orderid)
+            print(f"stop_orderid:{stop_orderid}")
+
+            
+
+        # if not self.untraded_stoporder:
+        #     print("无未成交委托")
+        # else:
+        #     print(f"self.untraded_stoporder:{self.untraded_stoporder[-1]}")
+
+        
 
         #     # if len(list(active_stop_orders.keys())) >= 1:
         #         # print(f"活动委托列表长度:{len(list(active_stop_orders.keys()))}")
@@ -202,6 +219,7 @@ class CCIMACDStrategy(CtaTemplate):
             #     print(1, stop_order.direction, stop_order.offset, stop_order.status)
             print(1)
             for vt_orderid in self.buy_vt_orderids:
+                print(f"vt_orderid:{vt_orderid}")
                 self.cancel_order(vt_orderid)
             self.buy_vt_orderids = self.buy(bar.close_price + self.pricetick * self.pricetick_multilplier2, self.fixed_size, True)
             
@@ -211,6 +229,7 @@ class CCIMACDStrategy(CtaTemplate):
             #     print(2, stop_order.direction, stop_order.offset)
             print(2)    
             for vt_orderid in self.short_vt_orderids:
+                print(f"vt_orderid:{vt_orderid}")
                 self.cancel_order(vt_orderid)
             self.short_vt_orderids = self.short(bar.close_price - self.pricetick * self.pricetick_multilplier2, self.fixed_size, True)
 
@@ -220,6 +239,7 @@ class CCIMACDStrategy(CtaTemplate):
             #     print(3, stop_order.direction, stop_order.offset)
             print(3)
             for vt_orderid in self.sell_vt_orderids:
+                print(f"vt_orderid:{vt_orderid}")
                 self.cancel_order(vt_orderid)
             self.sell_vt_orderids = self.sell(bar.close_price - self.pricetick * self.pricetick_multilplier2, self.fixed_size, True)
 
@@ -229,6 +249,7 @@ class CCIMACDStrategy(CtaTemplate):
         #         print(4, stop_order.direction, stop_order.offset)
             print(4)
             for vt_orderid in self.cover_vt_orderids:
+                print(f"vt_orderid:{vt_orderid}")
                 self.cancel_order(vt_orderid)
             self.cover_vt_orderids = self.cover(bar.close_price + self.pricetick * self.pricetick_multilplier2, self.fixed_size, True)
         #     else:
@@ -238,12 +259,16 @@ class CCIMACDStrategy(CtaTemplate):
         #     self.none_count += 1
         #     print("没有活动委托")
 
-        if self.bar_window_count == self.bar_window_length:
-            print(f"bar_window_count:{self.bar_window_count}")          
+        # self.untraded_stoporder.clear()
+
+        # if self.bar_window_count == self.bar_window_length:
+        #     print(f"bar_window_count:{self.bar_window_count}")          
 
     def on_Xmin_bar(self, bar: BarData):
         """"""
         self.bar_window_count = 0
+
+        # self.untraded_stoporder.clear()
 
         am = self.am
 
@@ -361,7 +386,7 @@ class CCIMACDStrategy(CtaTemplate):
             if stop_order.stop_orderid in buf_orderids:
                 # if stop_order.stop_orderid == self.stoporderid:
                 #     self.stoporderid_count2 += 1
-                print(f"要移除的委托号:{stop_order.stop_orderid}")
+                print(f"已将{stop_order.stop_orderid}号委托从缓存列表中移除")
                 buf_orderids.remove(stop_order.stop_orderid)
 
         # if stop_order.status == StopOrderStatus.CANCELLED:
