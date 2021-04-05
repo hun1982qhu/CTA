@@ -8,7 +8,7 @@ from vnpy.app.cta_strategy import (
     StopOrder,
     OrderData
 )
-from vnpy.app.cta_strategy.base import StopOrderStatus, BacktestingMode
+from vnpy.app.cta_strategy.base import StopOrderStatus, BacktestingMode, EngineType
 from vnpy.app.cta_strategy.backtesting import BacktestingEngine, OptimizationSetting
 from vnpy.trader.object import BarData, TickData
 from vnpy.trader.constant import Interval, Offset, Direction, Exchange, Status
@@ -144,21 +144,23 @@ class CuatroStrategy(CtaTemplate):
         if self.pos == 0:
             self.intra_trade_high = bar.high_price
             self.intra_trade_low = bar.low_price
+            self.long_stop = 0
+            self.stop_stop = 0
 
             if self.ma_trend > 0 and self.rsi_value >= self.rsi_long:
-                self.buy(self.boll_up, self.fixed_size, True)
+                self.buy(self.boll_up, self.fixed_size, stop=True)
             elif self.ma_trend < 0 and self.rsi_value <= self.rsi_short:
                 self.short(self.boll_down, self.fixed_size, True)
 
         elif self.pos > 0:
             self.intra_trade_high = max(self.intra_trade_high, bar.high_price)
             self.long_stop = (self.intra_trade_high - self.trailing_long * boll_width)
-            self.sell(self.long_stop, abs(self.pos), True)
+            self.sell(self.long_stop, abs(self.pos), stop=True)
             
         else:
             self.intra_trade_low = min(self.intra_trade_low, bar.low_price)
             self.short_stop = (self.intra_trade_low + self.trailing_short * boll_width)
-            self.cover(self.short_stop, abs(self.pos), True)
+            self.cover(self.short_stop, abs(self.pos), stop=True)
 
         self.put_event()
 
