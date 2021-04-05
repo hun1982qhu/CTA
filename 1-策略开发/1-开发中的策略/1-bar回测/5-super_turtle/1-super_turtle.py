@@ -123,7 +123,9 @@ class SuperTurtleStrategy(CtaTemplate):
                 1 / self.am.close,
                 self.atr_window
             )[-1]
+            print(f"atr_risk:{atr_risk}")
             self.trading_size = max(int(self.risk_level / atr_risk), 1)
+            print(f"trading_size:{self.trading_size}")
 
             self.long_entry = 0
             self.short_entry = 0

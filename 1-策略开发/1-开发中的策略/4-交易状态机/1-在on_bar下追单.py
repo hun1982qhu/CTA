@@ -18,6 +18,10 @@ from datetime import time as time1
 from datetime import datetime
 import time
 import talib
+
+from vnpy.trader.ui import create_qapp, QtCore
+from vnpy.chart import ChartWidget, VolumeItem, CandleItem
+
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 from matplotlib import style
@@ -29,40 +33,40 @@ import seaborn as sns
 sns.set()
 
 #%%
-class CCIStrategy(CtaTemplate):
+class CCIMACDStrategy(CtaTemplate):
     """"""
     author = "Huang Ning"
 
     bar_window_length = 3
     fixed_size = 10
-    pricetick_multilplier = 7
-    fastk_period = 9
-    slowk_period = 5
-    slowk_matype = 0
-    slowd_period = 5
-    slowd_matype = 0
+    cci_window = 3
+    macd_fastk_period = 5
+    macd_slowk_period = 12
+    macd_dea_period = 5
+    macd_drawback_pct = 0.90
+    pricetick_multilplier1 = 1
+    pricetick_multilplier2 = 0
     
-    k1 = 0
-    k2 = 0
-    d1 = 0
-    d2 = 0
+    diff = 0 
+    dea = 0 
+    macd = 0
 
     parameters = [
         "bar_window_length",
         "fixed_size",
-        "pricetick_multilplier",
-        "fastk_period",
-        "slowk_period",
-        "slowk_matype",
-        "slowd_period",
-        "slowd_matype"
+        "cci_window",
+        "macd_fastk_period",
+        "macd_slowk_period",
+        "macd_dea_period",
+        "macd_drawback_pct",
+        "pricetick_multilplier1",
+        "pricetick_multilplier2"
     ]
 
     variables = [
-        "k1",
-        "k2",
-        "d1",
-        "d2"
+        "diff",
+        "dea",
+        "macd"
     ]
 
     def __init__(
@@ -88,43 +92,42 @@ class CCIStrategy(CtaTemplate):
         self.short_price = 0
         self.cover_price = 0
 
-        self.cross_over = None
-        self.cross_below = None
+        self.cci_crossover_100 = False
+        self.cci_crossbelow_100 = False
+        self.cci_crossover_m100 = False
+        self.cci_crossbelow_m100 = False
 
-        self.vt_count: int = 0
+        self.macd_cross_over = False
+        self.macd_cross_below = False
 
-        self.long_untraded = 0
-        self.long_diff = 0
-        self.long_diff_list = []
+        self.intra_macd_high = 0
+        self.intra_macd_low = 0
 
-        self.short_untraded = 0
-        self.short_diff = 0
-        self.short_diff_list = []
+        self.macd_high_downtrend = False
+        self.macd_low_uptrend = False
 
-        self.long_stop_orders = []
-        self.short_stop_orders = []
+        self.chase_trigger = False
 
-        self.stoporder_count1 = 0
-        self.stoporder_count2 = 0
-        self.stoporder_count3 = 0
-        self.stoporder_count4 = 0
-        self.stoporder_count5 = 0
-        self.stoporder_count6 = 0
-        self.stoporder_count7 = 0
-        self.stoporder_count8 = 0
+        self.count1 = 0
+        self.count2 = 0
+        self.count3 = 0
+        self.count4 = 0
 
-        self.cancel_count1 = 0
-        self.cancel_count2 = 0
-        self.cancel_count3 = 0
-        self.cancel_count4 = 0
+        self.active_count = 0
+        self.none_count = 0
+        self.bar_window_count = 0
 
-        self.waiting_count = 0
-        self.cancelled_count = 0
-        self.triggered_count = 0
+        self.active_order_test = 0
 
-        self.bar = None
+        self.stoporderid_count1 = 0
+        self.stoporderid_count2 = 0
 
-        self.ordercount = 0
+        self.stopordercount1 = 1
+        self.stopordercount2 = 1
+        self.stopordercount3 = 1
+        self.stopordercount4 = 1
+
+        self.untraded_stoporder = []
 
     def on_init(self):
         """"""
@@ -138,130 +141,173 @@ class CCIStrategy(CtaTemplate):
     def on_stop(self):
         """"""
         self.write_log("策略停止")
-        print(f"self.ordercount:{self.ordercount}")
-        # print(self.long_diff_list)
-        # print(self.short_diff_list)
-
-        # print(f"long_stop_orders:{self.long_stop_orders}\t长度{len(self.long_stop_orders)}")
-        # print(f"short_stop_orders:{self.short_stop_orders}\t长度{len(self.short_stop_orders)}")
-
-        # myset = set(self.short_stop_orders)
-        # print(len(myset))
-        # errorlist = []
-        # for item in myset:
-            # print(f"{item}出现了{self.short_stop_orders.count(item)}次")
-            # if self.short_stop_orders.count(item) > 3:
-            #     errorlist.append(str(item))
-        # print(f"errorlist:{errorlist}")
-           
-        # print(f"在on_xmin_bar下的buy_stop_order:              {self.stoporder_count1}")
-        # print(f"在on_xmin_bar下取消buy_stop_order的次数:       {self.cancel_count1}\n")
-        # print(f"在on_xmin_bar下的short_stop_order:            {self.stoporder_count2}")
-        # print(f"在on_xmin_bar下取消short_stop_order的次数:     {self.cancel_count2}\n")
-        # print(f"在on_xmin_bar下的sell_stop_order:             {self.stoporder_count3}")
-        # print(f"在on_xmin_bar下取消sell_stop_order的次数:      {self.cancel_count3}\n")
-        # print(f"在on_xmin_bar下的cover_stop_order:            {self.stoporder_count4}")
-        # print(f"在on_xmin_bar下取消cover_stop_order的次数:     {self.cancel_count4}\n")
-        # print(f"在on_stop_order下的buy_stop_order:            {self.stoporder_count5}")
-        # print(f"在on_stop_order下的short_stop_order:          {self.stoporder_count6}")
-        # print(f"在on_stop_order下的sell_stop_order:           {self.stoporder_count7}")
-        # print(f"在on_stop_order下的cover_stop_order:          {self.stoporder_count8}")
-
-        # print(f"self.waiting_count:{self.waiting_count}")
-        # print(f"self.cancelled_count:{self.cancelled_count}")
-        # print(f"self.triggered_count:{self.triggered_count}")
-
-        # print(f"self.cta_engine.stop_orders:{self.cta_engine.stop_orders}\n\n长度为{len(self.cta_engine.stop_orders)}")
-        # print(f"看多委托未成交次数为{self.long_untraded}")
-        # print(f"stop_order.price - long_cross_price平均值：{np.mean(self.long_diff_list)}")
-        # print(f"看空委托未成交次数为{self.short_untraded}")
-        # print(f"short_cross_price - stop_order.price：{np.mean(self.short_diff_list)}")
-
         print("策略停止")
-        
+        print(self.untraded_stoporder)
+
+        # total_count = self.active_count + self.none_count
+
+        # active_count_pct = self.active_count/total_count
+        # none_count_pct = self.none_count/total_count        
+
+        # print(f"active_count_pct:{active_count_pct},none_count_pct:{none_count_pct}")
+        # print(f"active_order_test:{self.active_order_test}")
+
+        # # if self.stoporderid_count1 == self.stoporderid_count2:
+        # #     print("cancel_order有效")
+
+        # print(f"stopordercount1:{self.stopordercount1}")
+        # print(f"stopordercount2:{self.stopordercount2}")
+        # print(f"stopordercount3:{self.stopordercount3}")
+        # print(f"stopordercount4:{self.stopordercount4}")
+
     def on_tick(self, tick: TickData):
         """"""
         self.bg.update_tick(tick)
 
     def on_bar(self, bar: BarData):
         """"""
-        
         self.bg.update_bar(bar)
-
-        # print(f"active_stop_orders:{self.cta_engine.active_stop_orders}")
-        active_stop_orders = self.cta_engine.active_stop_orders
-
-        if active_stop_orders:
-            stop_orderid = list(active_stop_orders.keys())[0]
-            stop_order = list(active_stop_orders.values())[0]
-
-            if stop_order.direction == Direction.LONG and stop_order.offset == Offset.OPEN:
-                self.cancel_order(stop_orderid)
-                self.buy(bar.close_price, self.fixed_size, True)
-            
-            elif stop_order.direction == Direction.SHORT and stop_order.offset == Offset.OPEN:
-                self.cancel_order(stop_orderid)
-                self.short(bar.close_price, self.fixed_size, True)
-            
-            elif stop_order.direction == Direction.LONG and stop_order.offset == Offset.CLOSE:
-                self.cancel_order(stop_orderid)
-                self.sell(bar.close_price, self.fixed_size, True)
-
-            elif stop_order.direction == Direction.SHORT and stop_order.offset == Offset.CLOSE:
-                self.cancel_order(stop_orderid)
-                self.cover(bar.close_price, self.fixed_size, True)
-
-            # print(f"stop_ordersid:{stop_orderid}")
-            # print(f"stop_orders:{stop_order}")
         
+        self.bar_window_count += 1
+        print(f"bar_window_count:{self.bar_window_count}")
+
+        # # print(bar.datetime)
+        print(f"self.pos:{self.pos}")
+
+        
+        if not self.untraded_stoporder:
+            return
+        else:
+            print(f"untraded_stoporder:{self.untraded_stoporder[-1]}")
+
+        if self.cta_engine.active_stop_orders:    
+            stop_orderid = list(self.cta_engine.active_stop_orders.keys())[0]
+            stop_order = list(self.cta_engine.active_stop_orders.values())[0]
+            print(f"stop_orderid:{stop_orderid}")
+
+            
+
+        # if not self.untraded_stoporder:
+        #     print("无未成交委托")
+        # else:
+        #     print(f"self.untraded_stoporder:{self.untraded_stoporder[-1]}")
+
+        
+
+        #     # if len(list(active_stop_orders.keys())) >= 1:
+        #         # print(f"活动委托列表长度:{len(list(active_stop_orders.keys()))}")
+        #     if len(list(self.cta_engine.active_stop_orders.keys())) >= 2:
+        #         self.active_order_test +=1
+
+        #     self.active_count += 1
+            # print("有尚未成交的委托")
+
+            # for orderid in list(active_stop_orders.keys()):
+            #     self.cancel_order(orderid)
+
+            # for orderid in list(self.cta_engine.active_stop_orders.keys()):
+            #     self.stoporderid = orderid
+            #     self.stoporderid_count1 += 1
+            #     print(orderid)
+            #     self.cancel_order(orderid)
+            
+            # print(stop_order)
+            
+        if self.buy_vt_orderids:
+            # if stop_order.direction == Direction.LONG and stop_order.offset == Offset.OPEN:
+            #     self.stopordercount1 += 1
+            #     print(1, stop_order.direction, stop_order.offset, stop_order.status)
+            print(1)
+            for vt_orderid in self.buy_vt_orderids:
+                print(f"vt_orderid:{vt_orderid}")
+                self.cancel_order(vt_orderid)
+            self.buy_vt_orderids = self.buy(bar.close_price + self.pricetick * self.pricetick_multilplier2, self.fixed_size, True)
+            
+        elif self.short_vt_orderids:
+            # elif stop_order.direction == Direction.SHORT and stop_order.offset == Offset.OPEN:
+            #     self.stopordercount2 += 1
+            #     print(2, stop_order.direction, stop_order.offset)
+            print(2)    
+            for vt_orderid in self.short_vt_orderids:
+                print(f"vt_orderid:{vt_orderid}")
+                self.cancel_order(vt_orderid)
+            self.short_vt_orderids = self.short(bar.close_price - self.pricetick * self.pricetick_multilplier2, self.fixed_size, True)
+
+        elif self.sell_vt_orderids:
+            # elif stop_order.direction == Direction.LONG and stop_order.offset == Offset.CLOSE:
+            #     self.stopordercount3 += 1
+            #     print(3, stop_order.direction, stop_order.offset)
+            print(3)
+            for vt_orderid in self.sell_vt_orderids:
+                print(f"vt_orderid:{vt_orderid}")
+                self.cancel_order(vt_orderid)
+            self.sell_vt_orderids = self.sell(bar.close_price - self.pricetick * self.pricetick_multilplier2, self.fixed_size, True)
+
+        elif self.cover_vt_orderids:
+        #     if stop_order.direction == Direction.SHORT and stop_order.offset == Offset.CLOSE:
+        #         self.stopordercount4 += 1
+        #         print(4, stop_order.direction, stop_order.offset)
+            print(4)
+            for vt_orderid in self.cover_vt_orderids:
+                print(f"vt_orderid:{vt_orderid}")
+                self.cancel_order(vt_orderid)
+            self.cover_vt_orderids = self.cover(bar.close_price + self.pricetick * self.pricetick_multilplier2, self.fixed_size, True)
+        #     else:
+        #         print(stop_order)
+  
+        # else:
+        #     self.none_count += 1
+        #     print("没有活动委托")
+
+        # self.untraded_stoporder.clear()
+
+        # if self.bar_window_count == self.bar_window_length:
+        #     print(f"bar_window_count:{self.bar_window_count}")          
+
     def on_Xmin_bar(self, bar: BarData):
         """"""
+        self.bar_window_count = 0
 
-        print(bar.datetime)
+        # self.untraded_stoporder.clear()
 
         am = self.am
 
         am.update_bar(bar)
         if not am.inited:
-            # self.write_log(f"当前bar数量为：{str(self.am.count)}, 还差{str(self.am.size - self.am.count)}条")
-            # print(f"当前bar数量为：{str(self.am.count)}, 还差{str(self.am.size - self.am.count)}条")
             return
-        
-        self.slowk, self.slowd, self.slowj = am.kdj(
-            self.fastk_period,
-            self.slowk_period,
-            self.slowk_matype,
-            self.slowd_period,
-            self.slowd_matype,
-            array=True
-            )
 
-        # self.slowk, self.slowd, self.slowj = am.kdjs(
-        #     9,
-        #     array=True
-        #     )
+        # 计算macd指标
+        diff, dea, macd = am.macd(self.macd_fastk_period, self.macd_slowk_period, self.macd_dea_period, True)
+        self.diff = diff[-1]
+        self.dea = dea[-1]
+        self.macd = macd[-1]
 
-        # self.k.append(self.slowk[-1])
-        # self.d.append(self.slowd[-1])
-        # self.j.append(self.slowj[-1])
-        
-        self.k1 = self.slowk[-1]
-        self.k2 = self.slowk[-2]
-        self.d1 = self.slowd[-1]
-        self.d2 = self.slowd[-2]
+        # diff线由在dea线之下变为在dea线之上，表示市场行情由弱转强
+        self.macd_cross_over = (macd[-2] < 0 and macd[-1] > 0)
+        # diff线由在dea线之上变为在dea线之下，表示市场行情由强转弱
+        self.macd_cross_below = (macd[-2] > 0 and macd[-1] < 0)
 
-        self.cross_over = (self.k2 < self.d2 and self.k1 > self.d1)
-        self.cross_below = (self.k2 > self.d2 and self.k1 < self.d1)
-        
-        if self.pos == 0:            
-            self.buy_price = bar.close_price + self.pricetick * self.pricetick_multilplier
+        # 计算cci指标
+        cci = am.cci(self.cci_window, True)
+
+        # cci线上穿100线，说明市场行情进入明显上升趋势，此时应顺势买入
+        self.cci_crossover_100 = (cci[-2] < 100 and cci[-1] > 100)
+        # cci线下穿100线，说明市场行情上升趋势已经结束，此时应顺势卖出
+        self.cci_crossbelow_100 = (cci[-2] > 100 and cci[-1] < 100)
+        # cci线上穿-100线，说明市场行情开始回调，应该顺势买入
+        self.cci_crossover_m100 = (cci[-2] < -100 and cci[-1] > -100)
+        # cci线下穿-100线，说明市场行情进入明显下跌趋势，应该顺势卖出
+        self.cci_crossbelow_m100 = (cci[-2] > -100 and cci[-1] < -100)  
+
+        if self.pos == 0:
+            self.buy_price = bar.close_price + self.pricetick * self.pricetick_multilplier1
             self.sell_price = 0
-            self.short_price = bar.close_price - self.pricetick * self.pricetick_multilplier
+            self.short_price = bar.close_price - self.pricetick * self.pricetick_multilplier1
             self.cover_price = 0
 
         elif self.pos > 0:            
             self.buy_price = 0
-            self.sell_price = bar.close_price - self.pricetick * self.pricetick_multilplier
+            self.sell_price = bar.close_price - self.pricetick * self.pricetick_multilplier1
             self.short_price = 0
             self.cover_price = 0
 
@@ -269,72 +315,62 @@ class CCIStrategy(CtaTemplate):
             self.buy_price = 0
             self.sell_price = 0
             self.short_price = 0
-            self.cover_price = bar.close_price + self.pricetick * self.pricetick_multilplier
+            self.cover_price = bar.close_price + self.pricetick * self.pricetick_multilplier1
 
         if self.pos == 0:
+            # 用于缓存持仓期间最高或最低macd值
+            self.intra_macd_high = self.macd
+            self.intra_macd_low = self.macd
+
             if not self.buy_vt_orderids:
-                if self.d1 > 80 and self.cross_over:
+                if (self.cci_crossover_100 or self.cci_crossover_m100) and self.macd_cross_over:
                     self.buy_vt_orderids = self.buy(self.buy_price, self.fixed_size, True)
-                    self.stoporder_count1 += 1
-                    self.vt_count += 1
-                    # print(f"第{self.vt_count}次委托\t委托时间：{self.cta_engine.datetime}\t开多仓委托：{self.buy_vt_orderids}")
-                    self.buy_price = 0               
+                    # print(self.buy_vt_orderids)
+                    self.buy_price = 0     
             else:
                 for vt_orderid in self.buy_vt_orderids:
                     self.cancel_order(vt_orderid)
-                    self.cancel_count1 += 1
                    
             if not self.short_vt_orderids:
-                if self.d1 < 20 and self.cross_below:
+                if (self.cci_crossbelow_100 or self.cci_crossbelow_m100) and self.macd_cross_below:
                     self.short_vt_orderids = self.short(self.short_price, self.fixed_size, True)
-                    self.stoporder_count2 += 1
-                    self.vt_count += 1
-                    # print(f"第{self.vt_count}次委托\t委托时间：{self.cta_engine.datetime}\t开空仓委托：{self.short_vt_orderids}")
-                    self.short_price = 0       
+                    self.short_price = 0
             else:
                 for vt_orderid in self.short_vt_orderids:
                     self.cancel_order(vt_orderid)
-                    self.cancel_count2 += 1
 
         elif self.pos > 0:
+            # 缓存持多仓期间macd最大值
+            self.intra_macd_high = max(self.intra_macd_high, self.macd)
+            # 判断macd值低于持多仓期间macd最值的90%
+            self.macd_high_downtrend = (self.macd <= self.intra_macd_high * self.macd_drawback_pct)
+
             if not self.sell_vt_orderids:
-                if self.d1 > 80 and self.cross_below:
-                    self.sell_vt_orderids = self.sell(self.sell_price, abs(self.pos), True)
-                    self.stoporder_count3 += 1
-                    self.vt_count += 1
-                    # print(f"第{self.vt_count}次委托\t委托时间：{self.cta_engine.datetime}\t平多仓委托：{self.sell_vt_orderids}")
-                    self.sell_price = 0      
+                # 当macd值低于最高值的90%，或者cci下穿100线，或者cci下穿-100线，就平多仓
+                if self.macd_high_downtrend or self.cci_crossbelow_100 or self.cci_crossbelow_m100:
+                    self.sell_vt_orderids = self.sell(self.sell_price, self.fixed_size, True)
+                    self.sell_price = 0
             else:
                 for vt_orderid in self.sell_vt_orderids:
                     self.cancel_order(vt_orderid)
-                    self.cancel_count3 += 1
                     
         else:
+            # 缓存持空仓期间macd最小值
+            self.intra_macd_low = min(self.intra_macd_low, self.macd)        
+            # 判断macd值高于持空仓期间macd最值的90%
+            self.macd_low_uptrend = (self.macd >= self.intra_macd_low * self.macd_drawback_pct)
+            
             if not self.cover_vt_orderids:
-                if self.d1 < 20 and self.cross_over:
-                    self.cover_vt_orderids = self.cover(self.cover_price, abs(self.pos), True)
-                    self.stoporder_count4 += 1
-                    self.vt_count += 1
-                    # print(f"第{self.vt_count}次委托\t委托时间：{self.cta_engine.datetime}\t平空仓委托：{self.cover_vt_orderids}")
-                    self.cover_price = 0                    
+                # 当macd值高于最低值的90%，或者cci上穿100线，或者cci上穿-100线，就平多仓
+                if self.macd_low_uptrend or self.cci_crossover_100 or self.cci_crossover_m100:
+                    self.cover_vt_orderids = self.cover(self.cover_price, self.fixed_size, True)
+                    self.cover_price = 0
             else:
                 for vt_orderid in self.cover_vt_orderids:
                     self.cancel_order(vt_orderid)
-                    self.cancel_count4 += 1
-
-        self.put_event()
                 
     def on_stop_order(self, stop_order: StopOrder):
         """"""
-
-        # if stop_order.status == StopOrderStatus.WAITING:
-        #     self.waiting_count += 1
-        # if stop_order.status == StopOrderStatus.CANCELLED:
-        #     self.cancelled_count += 1
-        # if stop_order.status == StopOrderStatus.TRIGGERED:
-        #     print(f"triggered:{stop_order.offset}{stop_order.direction}")
-        #     self.triggered_count += 1
-
         # 只处理撤销（CANCELLED）或者触发（TRIGGERED）的停止委托单 
         if stop_order.status == StopOrderStatus.WAITING:
             print(f"还在waiting状态的stop_order:{stop_order.stop_orderid}")
@@ -348,53 +384,50 @@ class CCIStrategy(CtaTemplate):
             self.cover_vt_orderids
         ]:
             if stop_order.stop_orderid in buf_orderids:
+                # if stop_order.stop_orderid == self.stoporderid:
+                #     self.stoporderid_count2 += 1
+                print(f"已将{stop_order.stop_orderid}号委托从缓存列表中移除")
                 buf_orderids.remove(stop_order.stop_orderid)
+
+        # if stop_order.status == StopOrderStatus.CANCELLED:
+        #     print(f"self.pos:{self.pos}")
+        #     if self.pos == 0:
+        #         if not self.buy_vt_orderids:
+        #             if (self.cci_crossover_100 or self.cci_crossover_m100) and self.macd_cross_over:
+        #                 self.buy_vt_orderids = self.buy(self.buy_price, self.fixed_size, True)
+        #                 self.buy_price = 0
+        #                 self.count1 += 1
+        #                 print(f"buy:{self.count1}")    
+                    
+        #         if not self.short_vt_orderids:
+        #             if (self.cci_crossbelow_100 or self.cci_crossbelow_m100) and self.macd_cross_below:
+        #                 self.short_vt_orderids = self.short(self.short_price, self.fixed_size, True)
+        #                 self.short_price = 0
+        #                 self.count2 += 1
+        #                 print(f"short:{self.count2}")
+
+        #     elif self.pos > 0:
+        #         if not self.sell_vt_orderids:
+        #             if self.macd_high_downtrend or self.cci_crossbelow_100 or self.cci_crossbelow_m100:
+        #                 self.sell_vt_orderids = self.sell(self.short_price, self.fixed_size, True)
+        #                 self.short_price = 0
+        #                 self.count3 += 1
+        #                 print(f"sell:{self.count3}")
+                        
+        #     else:
+        #         if not self.cover_vt_orderids:
+        #             if self.macd_low_uptrend or self.cci_crossover_100 or self.cci_crossover_m100:
+        #                 self.cover_vt_orderids = self.cover(self.cover_price, self.fixed_size, True)
+        #                 self.cover_price = 0
+        #                 self.count4 += 1
+        #                 print(f"cover:{self.count4}")
 
     def on_trade(self, trade: TradeData):
         """
         Callback of new trade data update.
         """
-        # 发出新的委托
-        if self.pos == 0:
-            if not self.buy_vt_orderids:
-                if self.d1 > 80 and self.cross_over:
-                    self.buy_vt_orderids = self.buy(self.buy_price, self.fixed_size, True)
-                    self.stoporder_count5 += 1
-                    self.vt_count += 1
-                    # print(f"第{self.vt_count}次委托\t委托时间：{self.cta_engine.datetime}\t开多仓委托：{self.buy_vt_orderids}")
-                    self.buy_price = 0
-                    
-            if not self.short_vt_orderids:
-                if self.d1 < 20 and self.cross_below:
-                    self.short_vt_orderids = self.short(self.short_price, self.fixed_size, True)
-                    self.stoporder_count6 += 1
-                    self.vt_count += 1
-                    # print(f"第{self.vt_count}次委托\t委托时间：{self.cta_engine.datetime}\t开空仓委托：{self.short_vt_orderids}")
-                    self.short_price = 0
-                    
-        elif self.pos > 0:
-            if not self.sell_vt_orderids:
-                if self.d1 > 80 and self.cross_below:
-                    self.sell_vt_orderids = self.sell(self.sell_price, abs(self.pos), True)
-                    self.stoporder_count7 += 1
-                    self.vt_count += 1
-                    # print(f"第{self.vt_count}次委托\t委托时间：{self.cta_engine.datetime}\t平多仓委托：{self.sell_vt_orderids}")
-                    self.sell_price = 0
-                    
-        else:
-            if not self.cover_vt_orderids:
-                if self.d1 < 20 and self.cross_over:
-                    self.cover_vt_orderids = self.cover(self.cover_price, abs(self.pos), True)
-                    self.stoporder_count8 += 1
-                    self.vt_count += 1
-                    # print(f"第{self.vt_count}次委托\t委托时间：{self.cta_engine.datetime}\t平空仓委托：{self.cover_vt_orderids}")
-                    self.cover_price = 0
-
-    def on_order(self, order):
-        """"""
-        print(order)
-        if order.status == Status.CANCELLED:
-            self.ordercount += 1
+        # print(f"self.pos:{self.pos}")
+        # print(trade.orderid)
 
 
 class NewArrayManager(ArrayManager):
@@ -428,7 +461,6 @@ class NewArrayManager(ArrayManager):
             return slowk, slowd, slowj
         return slowk[-1], slowd[-1], slowj[-1]
 
-
 class XminBarGenerator(BarGenerator):
     def __init__(
         self,
@@ -443,8 +475,6 @@ class XminBarGenerator(BarGenerator):
         """
         Update 1 minute bar into generator
         """
-        # and (bar.exchange in [Exchange.SHFE, Exchange.DCE, Exchange.CZCE])
-        # print(f"bar.datetime.time:{bar.datetime.time()}")
         # If not inited, creaate window bar object
         if not self.window_bar:
             # Generate timestamp for bar data
@@ -523,18 +553,18 @@ class XminBarGenerator(BarGenerator):
 start1 = time.time()
 engine = BacktestingEngine()
 engine.set_parameters(
-    vt_symbol="rb2010.SHFE",
+    vt_symbol="rb888.SHFE",
     interval="1m",
-    start=datetime(2019, 10, 15),
-    end=datetime(2020,10,15),
+    start=datetime(2020, 1, 1),
+    end=datetime(2021, 4, 8),
     rate=0.0001,
-    slippage=2,
+    slippage=2.0,
     size=10,
-    pricetick=1,
-    capital=1_000_000,
+    pricetick=1.0,
+    capital=50000,
     mode=BacktestingMode.BAR
 )
-engine.add_strategy(CCIStrategy, {})
+engine.add_strategy(CCIMACDStrategy, {})
 #%%
 start2 = time.time()
 engine.load_data()
@@ -552,11 +582,11 @@ engine.show_chart()
 #%%
 # setting = OptimizationSetting()
 # setting.set_target("end_balance")
-# setting.add_parameter("bar_window_length", 1, 20, 1)
-# setting.add_parameter("cci_window", 3, 10, 1)
-# setting.add_parameter("fixed_size", 1, 1, 1)
-# setting.add_parameter("sell_multipliaer", 0.80, 0.99, 0.01)
-# setting.add_parameter("cover_multiplier", 1.01, 1.20, 0.01)
-# setting.add_parameter("pricetick_multiplier", 1, 5, 1)
+# setting.add_parameter("bar_window_length", 1, 15, 1)
+# setting.add_parameter("pricetick_multilplier1", 1, 10, 1)
+# setting.add_parameter("macd_fastk_period", 4, 20, 2)
+# setting.add_parameter("macd_slowk_period", 21, 30, 1)
+# setting.add_parameter("macd_signal_period", 4, 12, 2)
 #%%
 # engine.run_optimization(setting, output=True)
+# %%
