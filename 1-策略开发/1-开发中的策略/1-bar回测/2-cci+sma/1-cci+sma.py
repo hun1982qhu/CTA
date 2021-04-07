@@ -36,20 +36,32 @@ class CCIStrategy(CtaTemplate):
     bar_window_length1 = 5
     bar_window_length2 = 15
     cci_window = 20
+    boll_window = 20
+    boll_dev = 2.0
     pricetick_multilplier1 = 1
     pricetick_multilplier2 = 0
+    fixed_size = 1
 
     cci = 0
+    boll_up = 0
+    boll_down = 0
+
 
     parameters = [
-        "bar_window_length",
+        "bar_window_length1",
+        "bar_window_length2",
         "cci_window",
+        "boll_window",
+        "boll_dev",
         "pricetick_multilplier1",
-        "pricetick_multilplier2"
+        "pricetick_multilplier2",
+        "fixed_size"
     ]
 
     variables = [
-        "cci"
+        "cci",
+        "boll_up",
+        "boll_down"
     ]
 
     def __init__(
@@ -95,89 +107,99 @@ class CCIStrategy(CtaTemplate):
         
     def on_tick(self, tick: TickData):
         """"""
-        self.bg.update_tick(tick)
+        self.bg1.update_tick(tick)
 
     def on_bar(self, bar: BarData):
         """"""
-        self.bg.update_bar(bar)
+        self.bg1.update_bar(bar)
+        self.bg2.update_bar(bar)
 
-    def on_Xmin_bar(self, bar: BarData):
+        print(self.pos)
+
+        if self.buy_vt_orderids:
+            for vt_orderid in self.buy_vt_orderids:
+                self.cancel_order(vt_orderid)
+            self.buy_vt_orderids = self.buy(bar.close_price + self.pricetick * self.pricetick_multilplier2, self.fixed_size, True)
+            
+        elif self.short_vt_orderids:
+            for vt_orderid in self.short_vt_orderids:
+                self.cancel_order(vt_orderid)
+            self.short_vt_orderids = self.short(bar.close_price - self.pricetick * self.pricetick_multilplier2, self.fixed_size, True)
+
+        elif self.sell_vt_orderids:
+            for vt_orderid in self.sell_vt_orderids:
+                self.cancel_order(vt_orderid)
+            self.sell_vt_orderids = self.sell(bar.close_price - self.pricetick * self.pricetick_multilplier2, self.fixed_size, True)
+
+        elif self.cover_vt_orderids:
+            for vt_orderid in self.cover_vt_orderids:
+                self.cancel_order(vt_orderid)
+            self.cover_vt_orderids = self.cover(bar.close_price + self.pricetick * self.pricetick_multilplier2, self.fixed_size, True)
+
+    def on_Xmin1_bar(self, bar: BarData):
         """"""
-        am = self.am
-        am.update_bar(bar)
-        if not am.inited:
+        am1 = self.am1
+        am1.update_bar(bar)
+        if not am1.inited:
             return
-
-        cci = am.cci(self.cci_window, True)  
-        self.cci = cci[-1]
-
-        if self.pos == 0:            
-            self.buy_price = bar.close_price + self.pricetick * self.pricetick_multilplier1
-            self.sell_price = 0
-            self.short_price = bar.close_price - self.pricetick * self.pricetick_multilplier1
-            self.cover_price = 0
-
-        elif self.pos > 0:            
-            self.buy_price = 0
-            self.sell_price = bar.close_price - self.pricetick * self.pricetick_multilplier1
-            self.short_price = 0
-            self.cover_price = 0
-
-        else:
-            self.buy_price = 0
-            self.sell_price = 0
-            self.short_price = 0
-            self.cover_price = bar.close_price + self.pricetick * self.pricetick_multilplier1     
+        
+        self.boll_up, self.boll_down = am1.boll(self.boll_window, self.boll_dev)
 
         if self.pos == 0:
             if not self.buy_vt_orderids:
-                if  self.cci2 < -100 and self.diff > 50:
-                    self.buy_vt_orderids = self.buy(self.buy_price, self.fixed_size, True)
-                    self.buy_price = 0
+                if  self.cci > 0:
+                    self.buy_vt_orderids = self.buy(self.boll_up, self.fixed_size, True)
             else:
                 for vt_orderid in self.buy_vt_orderids:
                     self.cancel_order(vt_orderid)
                    
             if not self.short_vt_orderids:
-                if self.cci2 < -100 and self.cci_cross_below:
-                    self.short_vt_orderids = self.short(self.short_price, self.fixed_size, True)
-                    self.short_price = 0
+                if self.cci < 0:
+                    self.short_vt_orderids = self.short(self.boll_down, self.fixed_size, True)
             else:
                 for vt_orderid in self.short_vt_orderids:
                     self.cancel_order(vt_orderid)
 
         elif self.pos > 0:
             if not self.sell_vt_orderids:
-                if self.cci2 > 100 and self.diff > 0:
-                    self.short_vt_orderids = self.short(self.short_price, self.fixed_size, True)
-                    self.short_price = 0
-
-                elif self.d1 > self.kdj_overbought_line and self.kdj_cross_below:
-                    self.sell_vt_orderids = self.sell(self.sell_price, abs(self.pos), True)
-                    self.sell_price = 0
-
+                if self.cci < 0:
+                    self.sell_vt_orderids = self.sell(self.boll_down, abs(self.pos), True)
             else:
                 for vt_orderid in self.sell_vt_orderids:
                     self.cancel_order(vt_orderid)
-                    
         else:
             if not self.cover_vt_orderids:
-                if self.macd[-1] > 0 and self.signal[-1] > 0 and self.macd_cross_over:
-                    self.cover_vt_orderids = self.cover(self.cover_price, abs(self.pos), True)
-                    self.cover_price = 0
-
-                elif self.d1 < self.kdj_oversold_line and self.kdj_cross_over:
-                    self.cover_vt_orderids = self.cover(self.cover_price, abs(self.pos), True)
-                    self.cover_price = 0
-
+                if self.cci > 0:
+                    self.cover_vt_orderids = self.cover(self.boll_up, abs(self.pos), True)
             else:
                 for vt_orderid in self.cover_vt_orderids:
                     self.cancel_order(vt_orderid)
 
-        self.put_event()               
+        self.put_event()
+
+    def on_Xmin2_bar(self, bar: BarData):
+        """"""
+        am2 = self.am2
+        am2.update_bar(bar)
+        if not am2.inited:
+            return
+
+        self.cci = am2.cci(self.cci_window)
         
     def on_stop_order(self, stop_order: StopOrder):
         """"""
+        if stop_order.status == StopOrderStatus.WAITING:
+            return
+
+        # 移除已经结束的停止单委托号
+        for buf_orderids in [
+            self.buy_vt_orderids,
+            self.sell_vt_orderids,
+            self.short_vt_orderids,
+            self.cover_vt_orderids
+        ]:
+            if stop_order.stop_orderid in buf_orderids:
+                buf_orderids.remove(stop_order.stop_orderid)
        
     def on_trade(self, trade: TradeData):
         """"""
@@ -311,13 +333,13 @@ engine = BacktestingEngine()
 engine.set_parameters(
     vt_symbol="rb888.SHFE",
     interval="1m",
-    start=datetime(2017, 10, 15),
-    end=datetime(2020,10,15),
+    start=datetime(2020, 1, 1),
+    end=datetime(2020,12,31),
     rate=0.0001,
-    slippage=2,
+    slippage=1,
     size=10,
     pricetick=1,
-    capital=1_000_000,
+    capital=50000,
     mode=BacktestingMode.BAR
 )
 engine.add_strategy(CCIStrategy, {})
