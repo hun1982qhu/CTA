@@ -29,7 +29,7 @@ import seaborn as sns
 sns.set()
 
 #%%
-class CCIStrategy(CtaTemplate):
+class CCIBollStrategy(CtaTemplate):
     """"""
     author = "Huang Ning"
 
@@ -114,8 +114,6 @@ class CCIStrategy(CtaTemplate):
         self.bg1.update_bar(bar)
         self.bg2.update_bar(bar)
 
-        print(self.pos)
-
         if self.buy_vt_orderids:
             for vt_orderid in self.buy_vt_orderids:
                 self.cancel_order(vt_orderid)
@@ -138,6 +136,7 @@ class CCIStrategy(CtaTemplate):
 
     def on_Xmin1_bar(self, bar: BarData):
         """"""
+        print(f"5minutebar.datetime:{bar.datetime}")
         am1 = self.am1
         am1.update_bar(bar)
         if not am1.inited:
@@ -179,6 +178,7 @@ class CCIStrategy(CtaTemplate):
 
     def on_Xmin2_bar(self, bar: BarData):
         """"""
+        print(f"15minutebar.datetime:{bar.datetime}")
         am2 = self.am2
         am2.update_bar(bar)
         if not am2.inited:
@@ -342,7 +342,7 @@ engine.set_parameters(
     capital=50000,
     mode=BacktestingMode.BAR
 )
-engine.add_strategy(CCIStrategy, {})
+engine.add_strategy(CCIBollStrategy, {})
 #%%
 start2 = time.time()
 engine.load_data()
@@ -360,11 +360,11 @@ engine.show_chart()
 #%%
 # setting = OptimizationSetting()
 # setting.set_target("end_balance")
-# setting.add_parameter("bar_window_length", 1, 20, 1)
-# setting.add_parameter("cci_window", 3, 10, 1)
-# setting.add_parameter("fixed_size", 1, 1, 1)
-# setting.add_parameter("sell_multipliaer", 0.80, 0.99, 0.01)
-# setting.add_parameter("cover_multiplier", 1.01, 1.20, 0.01)
+# setting.add_parameter("bar_window_length1", 1, 30, 1)
+# setting.add_parameter("bar_window_length2", 15, 45, 1)
+# setting.add_parameter("cci_window", 3, 33, 1)
+# setting.add_parameter("boll_window", 10, 30, 1)
+# # setting.add_parameter("cover_multiplier", 1.01, 1.20, 0.01)
 # setting.add_parameter("pricetick_multiplier", 1, 5, 1)
 #%%
 # engine.run_optimization(setting, output=True)
