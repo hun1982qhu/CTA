@@ -38,13 +38,16 @@ class CCIBollStrategy(CtaTemplate):
     cci_window = 20
     boll_window = 20
     boll_dev = 2.0
+    atr_window = 12
     pricetick_multilplier1 = 1
     pricetick_multilplier2 = 0
     fixed_size = 1
+    slmultiplier = 5.2
 
     cci = 0
     boll_up = 0
     boll_down = 0
+    atr = 0
 
 
     parameters = [
@@ -53,15 +56,18 @@ class CCIBollStrategy(CtaTemplate):
         "cci_window",
         "boll_window",
         "boll_dev",
+        "atr_window",
         "pricetick_multilplier1",
         "pricetick_multilplier2",
-        "fixed_size"
+        "fixed_size",
+        "slmultiplier"
     ]
 
     variables = [
         "cci",
         "boll_up",
-        "boll_down"
+        "boll_down",
+        "atr"
     ]
 
     def __init__(
@@ -88,6 +94,12 @@ class CCIBollStrategy(CtaTemplate):
         self.sell_price = 0
         self.short_price = 0
         self.cover_price = 0
+
+        self.intra_trade_high = 0
+        self.intra_trade_low = 0
+
+        self.long_stop = 0
+        self.short_stop = 0
 
     def on_init(self):
         """"""
@@ -136,40 +148,49 @@ class CCIBollStrategy(CtaTemplate):
 
     def on_Xmin1_bar(self, bar: BarData):
         """"""
-        print(f"5minutebar.datetime:{bar.datetime}")
         am1 = self.am1
         am1.update_bar(bar)
         if not am1.inited:
             return
         
         self.boll_up, self.boll_down = am1.boll(self.boll_window, self.boll_dev)
+        self.atr = am1.atr(self.atr_window)
 
         if self.pos == 0:
+            self.intra_trade_high = bar.high_price
+            self.intra_trade_low = bar.low_price
+
             if not self.buy_vt_orderids:
-                if  self.cci > 0:
+                if  self.cci > 100:
                     self.buy_vt_orderids = self.buy(self.boll_up, self.fixed_size, True)
             else:
                 for vt_orderid in self.buy_vt_orderids:
                     self.cancel_order(vt_orderid)
                    
             if not self.short_vt_orderids:
-                if self.cci < 0:
+                if self.cci < -100:
                     self.short_vt_orderids = self.short(self.boll_down, self.fixed_size, True)
             else:
                 for vt_orderid in self.short_vt_orderids:
                     self.cancel_order(vt_orderid)
 
         elif self.pos > 0:
+            self.intra_trade_high = max(self.intra_trade_high, bar.high_price)
+            self.intra_trade_low = bar.low_price
+            self.long_stop = self.intra_trade_high - self.atr * self.slmultiplier
+
             if not self.sell_vt_orderids:
-                if self.cci < 0:
-                    self.sell_vt_orderids = self.sell(self.boll_down, abs(self.pos), True)
+                self.sell_vt_orderids = self.sell(self.long_stop, abs(self.pos), True)
             else:
                 for vt_orderid in self.sell_vt_orderids:
                     self.cancel_order(vt_orderid)
         else:
+            self.intra_trade_high = bar.high_price
+            self.intra_trade_low = min(self.intra_trade_low, bar.low_price)
+            self.short_stop = self.intra_trade_low + self.atr * self.slmultiplier
+
             if not self.cover_vt_orderids:
-                if self.cci > 0:
-                    self.cover_vt_orderids = self.cover(self.boll_up, abs(self.pos), True)
+                self.cover_vt_orderids = self.cover(self.short_stop, abs(self.pos), True)
             else:
                 for vt_orderid in self.cover_vt_orderids:
                     self.cancel_order(vt_orderid)
@@ -178,7 +199,6 @@ class CCIBollStrategy(CtaTemplate):
 
     def on_Xmin2_bar(self, bar: BarData):
         """"""
-        print(f"15minutebar.datetime:{bar.datetime}")
         am2 = self.am2
         am2.update_bar(bar)
         if not am2.inited:
