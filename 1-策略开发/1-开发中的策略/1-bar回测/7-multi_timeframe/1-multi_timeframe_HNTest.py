@@ -96,9 +96,7 @@ class MultiTimeframeStrategyHNTest(CtaTemplate):
         self.buy_price = 0
         self.sell_price = 0
         self.short_price = 0
-        self.cover_price = 0
-
-        self.untraded_count = 0    
+        self.cover_price = 0  
 
     def on_init(self):
         """"""
@@ -111,7 +109,6 @@ class MultiTimeframeStrategyHNTest(CtaTemplate):
 
     def on_stop(self):
         """"""
-        print(f"untraded_count={self.untraded_count}")
         self.write_log("策略停止")
 
     def on_tick(self, tick: TickData):
