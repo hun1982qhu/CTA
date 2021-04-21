@@ -10,6 +10,8 @@ Windows下mongodb的安装和卸载
 
 5. 在cmd中创建mongodb服务    指令：mongod --dbpath "C:\Users\黄柠\.vntrader\mongodbdata" --logpath "C:\Users\黄柠\.vntrader\mongodbdata\log\mongodb.log" --install --serviceName "mongobase"
 
+mongod --dbpath "C:\Program Files\MongoDB\Server\4.4\data" --logpath "C:\Program Files\MongoDB\Server\4.4\log\mongodb.log" --install --serviceName "mongodbdatabase"
+
 6. 在cmd中启动mongodb   指令：net start MongoDB
 
 7. 在cmd中删除mongodb服务   指令：mongod --dbpath "C:\Users\黄柠\.vntrader\mongodbdata" --logpath "C:\Users\黄柠\.vntrader\mongodbdata\log\mongodb.log" --install --remove "mongobase"
