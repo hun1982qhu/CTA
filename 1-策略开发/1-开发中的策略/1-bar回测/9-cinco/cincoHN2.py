@@ -1,3 +1,4 @@
+#%%
 from typing import Any, Callable
 from vnpy.app.cta_strategy import (
     CtaTemplate,
@@ -32,6 +33,7 @@ import seaborn as sns
 sns.set()
 
 
+#%%
 class CincoStrategyHN(CtaTemplate):
     """"""
 
@@ -148,3 +150,6 @@ class CincoStrategyHN(CtaTemplate):
     def on_stop_order(self, stop_order: StopOrder):
         """"""
         self.put_event()
+
+
+#%%
