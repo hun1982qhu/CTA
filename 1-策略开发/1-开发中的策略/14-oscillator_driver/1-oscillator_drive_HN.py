@@ -112,33 +112,28 @@ class OscillatorDriveStrategyHN(CtaTemplate):
         """"""
         self.bg.update_bar(bar)
 
-        if self.buy_vt_orderids:
-            for vt_orderid in self.buy_vt_orderids:
-                self.cancel_order(vt_orderid)
-            self.buy_vt_orderids = self.buy(bar.close_price + self.pricetick * self.pricetick_multilplier, self.trading_size, True)     
+        # if self.buy_vt_orderids:
+        #     for vt_orderid in self.buy_vt_orderids:
+        #         self.cancel_order(vt_orderid)
+        #     self.buy_vt_orderids = self.buy(bar.close_price + self.pricetick * self.pricetick_multilplier, self.trading_size, True)     
         
-        elif self.sell_vt_orderids:
-            for vt_orderid in self.sell_vt_orderids:
-                self.cancel_order(vt_orderid)
-            self.sell_vt_orderids = self.sell(bar.close_price - self.pricetick * self.pricetick_multilplier, self.trading_size, True)
+        # elif self.sell_vt_orderids:
+        #     for vt_orderid in self.sell_vt_orderids:
+        #         self.cancel_order(vt_orderid)
+        #     self.sell_vt_orderids = self.sell(bar.close_price - self.pricetick * self.pricetick_multilplier, self.trading_size, True)
         
-        elif self.short_vt_orderids:
-            for vt_orderid in self.short_vt_orderids:
-                self.cancel_order(vt_orderid)
-            self.short_vt_orderids = self.short(bar.close_price - self.pricetick * self.pricetick_multilplier, abs(self.pos), True)
+        # elif self.short_vt_orderids:
+        #     for vt_orderid in self.short_vt_orderids:
+        #         self.cancel_order(vt_orderid)
+        #     self.short_vt_orderids = self.short(bar.close_price - self.pricetick * self.pricetick_multilplier, abs(self.pos), True)
         
-        elif self.cover_vt_orderids:
-            for vt_orderid in self.cover_vt_orderids:
-                self.cancel_order(vt_orderid)
-            self.cover_vt_orderids = self.cover(bar.close_price + self.pricetick * self.pricetick_multilplier, abs(self.pos), True)
+        # elif self.cover_vt_orderids:
+        #     for vt_orderid in self.cover_vt_orderids:
+        #         self.cancel_order(vt_orderid)
+        #     self.cover_vt_orderids = self.cover(bar.close_price + self.pricetick * self.pricetick_multilplier, abs(self.pos), True)
 
     def on_xmin_bar(self, bar: BarData):
         """"""
-
-        print(bar.datetime)
-
-        self.cancel_all()
-
         am = self.am
         am.update_bar(bar)
         if not am.inited:
@@ -206,9 +201,11 @@ class OscillatorDriveStrategyHN(CtaTemplate):
 
     def on_stop_order(self, stop_order: StopOrder):
         """"""
-        if stop_order.status == StopOrderStatus.WAITING or stop_order.status == StopOrderStatus.TRIGGERED:
+        # 只处理CANCELLED和TRIGGERED这两种状态的委托
+        if stop_order.status == StopOrderStatus.WAITING:
             return
 
+        print(stop_order.status)
         for buf_orderids in [
             self.buy_vt_orderids, 
             self.sell_vt_orderids, 
@@ -218,22 +215,26 @@ class OscillatorDriveStrategyHN(CtaTemplate):
             if stop_order.stop_orderid in buf_orderids:
                 buf_orderids.remove(stop_order.stop_orderid)
 
-        if self.pos == 0:
-            if self.ultosc > self.buy_dis:
-                if not self.buy_vt_orderids:
-                    self.buy_vt_orderids = self.buy(self.boll_up, self.trading_size, True)
+        
 
-            elif self.ultosc < self.sell_dis:
-                if not self.short_vt_orderids:
-                    self.short_vt_orderids = self.short(self.boll_down, self.trading_size, True)
+        if stop_order.status == StopOrderStatus.CANCELLED:
+            print(stop_order.status)
+            if self.pos == 0:
+                if self.ultosc > self.buy_dis:
+                    if not self.buy_vt_orderids:
+                        self.buy_vt_orderids = self.buy(self.boll_up, self.trading_size, True)
 
-        elif self.pos > 0:  
-            if self.sell_vt_orderids:
-                self.sell(self.long_stop, abs(self.pos), True)
+                elif self.ultosc < self.sell_dis:
+                    if not self.short_vt_orderids:
+                        self.short_vt_orderids = self.short(self.boll_down, self.trading_size, True)
 
-        elif self.pos < 0:          
-            if self.cover_vt_orderids:
-                self.cover(self.short_stop, abs(self.pos), True)
+            elif self.pos > 0:  
+                if self.sell_vt_orderids:
+                    self.sell(self.long_stop, abs(self.pos), True)
+
+            elif self.pos < 0:          
+                if self.cover_vt_orderids:
+                    self.cover(self.short_stop, abs(self.pos), True)
 
 
 class XminBarGenerator(BarGenerator):
