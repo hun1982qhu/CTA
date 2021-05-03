@@ -37,39 +37,45 @@ class OscillatorDriveStrategyHN(CtaTemplate):
     boll_window = 41
     boll_dev = 2
     atr_window = 15
-    trading_size = 1
     risk_level = 50
     sl_multiplier = 2.1
     dis_open = 5
     interval = 25
+    trading_size = 1
 
     boll_up = 0
     boll_down = 0
-    cci_value = 0
+    ultosc = 0
+    buy_dis = 0
+    sell_dis = 0
     atr_value = 0
     long_stop = 0
     short_stop = 0
-
-    exit_up = 0
-    exit_down = 0
+    intra_trade_high = 0
+    intra_trade_low = 0
 
     parameters = [
         "boll_window",
         "boll_dev",
+        "atr_window",
+        "risk_level",
+        "sl_multiplier",
         "dis_open",
         "interval",
-        "atr_window",
-        "sl_multiplier"
+        "trading_size"
     ]
 
     variables = [
         "boll_up",
         "boll_down",
+        "ultosc",
+        "buy_dis",
+        "sell_dis",
         "atr_value",
-        "intra_trade_high",
-        "intra_trade_low",
         "long_stop",
-        "short_stop"
+        "short_stop",
+        "intra_trade_high",
+        "intra_trade_low"
     ]
 
     def __init__(self, cta_engine, strategy_name, vt_symbol, setting):
@@ -85,9 +91,6 @@ class OscillatorDriveStrategyHN(CtaTemplate):
         self.sell_vt_orderids = []
         self.short_vt_orderids = []
         self.cover_vt_orderids = []
-
-        self.buy_dis = 0
-        self.sell_dis = 0
 
     def on_init(self):
         """"""
@@ -126,7 +129,9 @@ class OscillatorDriveStrategyHN(CtaTemplate):
         self.atr_value = am.atr(self.atr_window)
 
         if self.pos == 0:
-            self.trading_size = max(int(self.risk_level / self.atr_value), 1)  # 风险控制：交易量与真实波幅呈反比，波动幅度越大，交易量越小；波动幅度越小，交易量越大。
+            self.trading_size = max(int(self.risk_level / self.atr_value), 1)
+            if self.trading_size >= 2:
+                self.trading_size = 2
             self.intra_trade_high = bar.high_price
             self.intra_trade_low = bar.low_price
 
@@ -148,7 +153,7 @@ class OscillatorDriveStrategyHN(CtaTemplate):
             self.intra_trade_high = max(self.intra_trade_high, bar.high_price)
             self.intra_trade_low = bar.low_price
 
-            self.long_stop = self.intra_trade_high - self.atr_value * self.sl_multiplier  # 将动态最高点减去动态回撤幅度作为止盈点
+            self.long_stop = self.intra_trade_high - self.atr_value * self.sl_multiplier
             
             if not self.sell_vt_orderids:
                 self.sell_vt_orderids = self.sell(self.long_stop, abs(self.pos), True)
@@ -160,7 +165,7 @@ class OscillatorDriveStrategyHN(CtaTemplate):
             self.intra_trade_high = bar.high_price
             self.intra_trade_low = min(self.intra_trade_low, bar.low_price)
 
-            self.short_stop = self.intra_trade_low + self.atr_value * self.sl_multiplier  # 将动态最低点加上动态回撤幅度作为止损点
+            self.short_stop = self.intra_trade_low + self.atr_value * self.sl_multiplier
             
             if not self.cover_vt_orderids:
                 self.cover_vt_orderids = self.cover(self.short_stop, abs(self.pos), True)
