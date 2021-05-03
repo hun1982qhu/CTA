@@ -115,7 +115,6 @@ class OscillatorDriveStrategyHN(CtaTemplate):
 
     def on_xmin_bar(self, bar: BarData):
         """"""
-        # print(f"self.pos:{self.pos}")
         am = self.am
         am.update_bar(bar)
         if not am.inited:
