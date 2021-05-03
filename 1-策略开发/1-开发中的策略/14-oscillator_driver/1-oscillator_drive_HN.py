@@ -32,7 +32,6 @@ sns.set()
 #%%
 class OscillatorDriveStrategyHN(CtaTemplate):
     """"""
-
     author = "Huang Ning"
 
     boll_window = 41
@@ -50,26 +49,26 @@ class OscillatorDriveStrategyHN(CtaTemplate):
     atr_value = 0
     long_stop = 0
     short_stop = 0
-    
+
     exit_up = 0
     exit_down = 0
 
     parameters = [
-        "boll_window", 
-        "boll_dev", 
-        "dis_open", 
-        "interval", 
-        "atr_window", 
+        "boll_window",
+        "boll_dev",
+        "dis_open",
+        "interval",
+        "atr_window",
         "sl_multiplier"
     ]
 
     variables = [
-        "boll_up", 
-        "boll_down", 
+        "boll_up",
+        "boll_down",
         "atr_value",
-        "intra_trade_high", 
-        "intra_trade_low", 
-        "long_stop", 
+        "intra_trade_high",
+        "intra_trade_low",
+        "long_stop",
         "short_stop"
     ]
 
@@ -81,7 +80,6 @@ class OscillatorDriveStrategyHN(CtaTemplate):
         self.am = ArrayManager()
 
         self.pricetick = self.get_pricetick()
-        self.pricetick_multilplier = 0
 
         self.buy_vt_orderids = []
         self.sell_vt_orderids = []
@@ -112,28 +110,9 @@ class OscillatorDriveStrategyHN(CtaTemplate):
         """"""
         self.bg.update_bar(bar)
 
-        # if self.buy_vt_orderids:
-        #     for vt_orderid in self.buy_vt_orderids:
-        #         self.cancel_order(vt_orderid)
-        #     self.buy_vt_orderids = self.buy(bar.close_price + self.pricetick * self.pricetick_multilplier, self.trading_size, True)     
-        
-        # elif self.sell_vt_orderids:
-        #     for vt_orderid in self.sell_vt_orderids:
-        #         self.cancel_order(vt_orderid)
-        #     self.sell_vt_orderids = self.sell(bar.close_price - self.pricetick * self.pricetick_multilplier, self.trading_size, True)
-        
-        # elif self.short_vt_orderids:
-        #     for vt_orderid in self.short_vt_orderids:
-        #         self.cancel_order(vt_orderid)
-        #     self.short_vt_orderids = self.short(bar.close_price - self.pricetick * self.pricetick_multilplier, abs(self.pos), True)
-        
-        # elif self.cover_vt_orderids:
-        #     for vt_orderid in self.cover_vt_orderids:
-        #         self.cancel_order(vt_orderid)
-        #     self.cover_vt_orderids = self.cover(bar.close_price + self.pricetick * self.pricetick_multilplier, abs(self.pos), True)
-
     def on_xmin_bar(self, bar: BarData):
         """"""
+        # print(f"self.pos:{self.pos}")
         am = self.am
         am.update_bar(bar)
         if not am.inited:
@@ -147,7 +126,7 @@ class OscillatorDriveStrategyHN(CtaTemplate):
         self.atr_value = am.atr(self.atr_window)
 
         if self.pos == 0:
-            self.trading_size = max(int(self.risk_level / self.atr_value), 1)  # 风险控制：交易量跟真实波幅呈反比
+            self.trading_size = max(int(self.risk_level / self.atr_value), 1)  # 风险控制：交易量与真实波幅呈反比，波动幅度越大，交易量越小；波动幅度越小，交易量越大。
             self.intra_trade_high = bar.high_price
             self.intra_trade_low = bar.low_price
 
@@ -169,22 +148,22 @@ class OscillatorDriveStrategyHN(CtaTemplate):
             self.intra_trade_high = max(self.intra_trade_high, bar.high_price)
             self.intra_trade_low = bar.low_price
 
-            self.long_stop = self.intra_trade_high - self.atr_value * self.sl_multiplier # 将动态最高点减去动态回撤幅度作为止盈点
+            self.long_stop = self.intra_trade_high - self.atr_value * self.sl_multiplier  # 将动态最高点减去动态回撤幅度作为止盈点
             
-            if self.sell_vt_orderids:
-                self.sell(self.long_stop, abs(self.pos), True)
+            if not self.sell_vt_orderids:
+                self.sell_vt_orderids = self.sell(self.long_stop, abs(self.pos), True)
             else:
                 for vt_orderid in self.sell_vt_orderids:
                     self.cancel_order(vt_orderid)
 
-        elif self.pos < 0:
+        else:
             self.intra_trade_high = bar.high_price
             self.intra_trade_low = min(self.intra_trade_low, bar.low_price)
 
-            self.short_stop = self.intra_trade_low + self.atr_value * self.sl_multiplier # 将动态最低点加上动态回撤幅度作为止损点
+            self.short_stop = self.intra_trade_low + self.atr_value * self.sl_multiplier  # 将动态最低点加上动态回撤幅度作为止损点
             
-            if self.cover_vt_orderids:
-                self.cover(self.short_stop, abs(self.pos), True)
+            if not self.cover_vt_orderids:
+                self.cover_vt_orderids = self.cover(self.short_stop, abs(self.pos), True)
             else:
                 for vt_orderid in self.cover_vt_orderids:
                     self.cancel_order(vt_orderid)
@@ -205,20 +184,16 @@ class OscillatorDriveStrategyHN(CtaTemplate):
         if stop_order.status == StopOrderStatus.WAITING:
             return
 
-        print(stop_order.status)
         for buf_orderids in [
-            self.buy_vt_orderids, 
-            self.sell_vt_orderids, 
-            self.short_vt_orderids, 
+            self.buy_vt_orderids,
+            self.sell_vt_orderids,
+            self.short_vt_orderids,
             self.cover_vt_orderids
         ]:
             if stop_order.stop_orderid in buf_orderids:
                 buf_orderids.remove(stop_order.stop_orderid)
 
-        
-
         if stop_order.status == StopOrderStatus.CANCELLED:
-            print(stop_order.status)
             if self.pos == 0:
                 if self.ultosc > self.buy_dis:
                     if not self.buy_vt_orderids:
@@ -229,12 +204,14 @@ class OscillatorDriveStrategyHN(CtaTemplate):
                         self.short_vt_orderids = self.short(self.boll_down, self.trading_size, True)
 
             elif self.pos > 0:  
-                if self.sell_vt_orderids:
-                    self.sell(self.long_stop, abs(self.pos), True)
+                if not self.sell_vt_orderids:
+                    self.sell_vt_orderids = self.sell(self.long_stop, abs(self.pos), True)
 
-            elif self.pos < 0:          
-                if self.cover_vt_orderids:
-                    self.cover(self.short_stop, abs(self.pos), True)
+            else:     
+                if not self.cover_vt_orderids:
+                    self.cover_vt_orderids = self.cover(self.short_stop, abs(self.pos), True)
+
+        self.put_event()        
 
 
 class XminBarGenerator(BarGenerator):
@@ -335,7 +312,7 @@ engine.set_parameters(
     start=datetime(2020, 1, 1),
     end=datetime(2021, 4, 29),
     rate=0.0001,
-    slippage=2,
+    slippage=0.2,
     size=10,
     pricetick=1,
     capital=50000,
