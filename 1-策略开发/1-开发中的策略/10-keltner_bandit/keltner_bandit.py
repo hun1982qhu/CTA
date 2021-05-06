@@ -30,9 +30,22 @@ sns.set()
 
 
 #%%
-class KeltnerBanditStrategyHNTest(CtaTemplate):
+from vnpy.app.cta_strategy import (
+    CtaTemplate,
+    StopOrder,
+    TickData,
+    BarData,
+    TradeData,
+    OrderData,
+    BarGenerator,
+    ArrayManager,
+)
+from vnpy.trader.constant import Interval
+
+
+class KeltnerBanditStrategy(CtaTemplate):
     """"""
-    author = "Huang Ning"
+    author = "用Python的交易员"
 
     kk_window = 20
     kk_dev = 2
@@ -48,56 +61,57 @@ class KeltnerBanditStrategyHNTest(CtaTemplate):
     atr_value = 0
 
     parameters = [
-        "kk_window",
-        "kk_dev",
-        "cci_window",
-        "cci_stop",
-        "atr_window",
-        "risk_level"
+        "kk_window", "kk_dev", "cci_window",
+        "cci_stop", "atr_window", "risk_level"
     ]
     variables = [
-        "trading_size",
-        "kk_up",
-        "kk_down",
-        "cci_value", 
-        "atr_value"
+        "trading_size", "kk_up", "kk_down",
+        "cci_value", "atr_value"
     ]
 
     def __init__(self, cta_engine, strategy_name, vt_symbol, setting):
         """"""
         super().__init__(cta_engine, strategy_name, vt_symbol, setting)
 
-        self.bg = XminBarGenerator(self.on_bar, 1, self.on_hour_bar, interval=Interval.HOUR)
+        self.bg = BarGenerator(
+            self.on_bar, 1, self.on_hour_bar, interval=Interval.HOUR)
         self.am = ArrayManager()
 
-        self.buy_vt_orderids = []
-        self.sell_vt_orderids = []
-        self.short_vt_orderids = []
-        self.cover_vt_orderids = []
-
     def on_init(self):
-        """"""
+        """
+        Callback when strategy is inited.
+        """
         self.write_log("策略初始化")
         self.load_bar(10)
 
     def on_start(self):
-        """"""
+        """
+        Callback when strategy is started.
+        """
         self.write_log("策略启动")
 
     def on_stop(self):
-        """"""
+        """
+        Callback when strategy is stopped.
+        """
         self.write_log("策略停止")
 
     def on_tick(self, tick: TickData):
-        """"""
+        """
+        Callback of new tick data update.
+        """
         self.bg.update_tick(tick)
 
     def on_bar(self, bar: BarData):
-        """"""
+        """
+        Callback of new bar data update.
+        """
         self.bg.update_bar(bar)
 
     def on_hour_bar(self, bar: BarData):
         """"""
+        self.cancel_all()
+
         am = self.am
         am.update_bar(bar)
         if not am.inited:

@@ -120,29 +120,10 @@ class OrderData(BaseData):
     datetime: datetime = None
     reference: str = ""
 
-    date: str = ""  # 新增
-    time: str = ""  # 新增
-    cancel_time: str = ""  # 新增
-
     def __post_init__(self):
         """"""
         self.vt_symbol = f"{self.symbol}.{self.exchange.value}"
         self.vt_orderid = f"{self.gateway_name}.{self.orderid}"
-
-        self.untraded = self.volume - self.traded  # 新增
-        
-        # with millisecond  # 新增
-        if self.date and "." in self.time:  # 新增
-            if "-" in self.date:  # 新增
-                self.datetime = datetime.strptime(" ".join([self.date, self.time]), "%Y-%m-%d %H:%M:%S.%f")  # 新增
-            else:  # 新增
-                self.datetime = datetime.strptime(" ".join([self.date, self.time]), "%Y%m%d %H%M%S.%f")  # 新增
-        # without millisecond
-        elif self.date:   # 新增
-            if "-" in self.date:  # 新增
-                self.datetime = datetime.strptime(" ".join([self.date, self.time]), "%Y-%m-%d %H:%M:%S")  # 新增
-            else:  # 新增
-                self.datetime = datetime.strptime(" ".join([self.date, self.time]), "%Y%m%d %H:%M:%S")  # 新增
 
     def is_active(self) -> bool:
         """
@@ -252,7 +233,7 @@ class ContractData(BaseData):
     exchange: Exchange
     name: str
     product: Product
-    size: int
+    size: float
     pricetick: float
 
     min_volume: float = 1           # minimum trading volume of the contract
@@ -270,6 +251,42 @@ class ContractData(BaseData):
     def __post_init__(self):
         """"""
         self.vt_symbol = f"{self.symbol}.{self.exchange.value}"
+
+
+@dataclass
+class QuoteData(BaseData):
+    """
+    Quote data contains information for tracking lastest status
+    of a specific quote.
+    """
+
+    symbol: str
+    exchange: Exchange
+    quoteid: str
+
+    bid_price: float = 0.0
+    bid_volume: int = 0
+    ask_price: float = 0.0
+    ask_volume: int = 0
+    bid_offset: Offset = Offset.NONE
+    ask_offset: Offset = Offset.NONE
+    status: Status = Status.SUBMITTING
+    datetime: datetime = None
+    reference: str = ""
+
+    def __post_init__(self):
+        """"""
+        self.vt_symbol = f"{self.symbol}.{self.exchange.value}"
+        self.vt_quoteid = f"{self.gateway_name}.{self.quoteid}"
+
+    def create_cancel_request(self) -> "CancelRequest":
+        """
+        Create cancel request object from quote.
+        """
+        req = CancelRequest(
+            orderid=self.quoteid, symbol=self.symbol, exchange=self.exchange
+        )
+        return req
 
 
 @dataclass
@@ -354,3 +371,43 @@ class HistoryRequest:
     def __post_init__(self):
         """"""
         self.vt_symbol = f"{self.symbol}.{self.exchange.value}"
+
+
+@dataclass
+class QuoteRequest:
+    """
+    Request sending to specific gateway for creating a new quote.
+    """
+
+    symbol: str
+    exchange: Exchange
+    bid_price: float
+    bid_volume: int
+    ask_price: float
+    ask_volume: int
+    bid_offset: Offset = Offset.NONE
+    ask_offset: Offset = Offset.NONE
+    reference: str = ""
+
+    def __post_init__(self):
+        """"""
+        self.vt_symbol = f"{self.symbol}.{self.exchange.value}"
+
+    def create_quote_data(self, quoteid: str, gateway_name: str) -> QuoteData:
+        """
+        Create quote data from request.
+        """
+        quote = QuoteData(
+            symbol=self.symbol,
+            exchange=self.exchange,
+            quoteid=self.quoteid,
+            bid_price=self.bid_price,
+            bid_volume=self.bid_volume,
+            ask_price=self.ask_price,
+            ask_volume=self.ask_volume,
+            bid_offset=self.bid_offset,
+            ask_offset=self.ask_offset,
+            reference=self.reference,
+            gateway_name=gateway_name,
+        )
+        return quote
