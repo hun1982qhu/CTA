@@ -1,4 +1,5 @@
 #%%
+from logging import currentframe
 from typing import Any, Callable
 from vnpy.app.cta_strategy import (
     CtaTemplate,
@@ -8,7 +9,7 @@ from vnpy.app.cta_strategy import (
     StopOrder,
     OrderData
 )
-from vnpy.app.cta_strategy.base import StopOrderStatus, BacktestingMode
+from vnpy.app.cta_strategy.base import StopOrderStatus, BacktestingMode, EngineType
 from vnpy.app.cta_strategy.backtesting import BacktestingEngine, OptimizationSetting
 from vnpy.trader.object import BarData, TickData
 from vnpy.trader.constant import Interval, Offset, Direction, Exchange, Status
@@ -30,17 +31,17 @@ sns.set()
 
 
 #%%
-class OscillatorDriveStrategyHN(CtaTemplate):
+class OscillatorDriveHNTest(CtaTemplate):
     """"""
     author = "Huang Ning"
 
-    boll_window = 41
-    boll_dev = 2
-    atr_window = 15
+    boll_window = 6
+    boll_dev = 4
+    atr_window = 10
     risk_level = 50
-    sl_multiplier = 2.1
-    dis_open = 5
-    interval = 25
+    sl_multiplier = 5.4
+    dis_open = 2
+    interval = 4
     trading_size = 1
 
     boll_up = 0
@@ -73,9 +74,7 @@ class OscillatorDriveStrategyHN(CtaTemplate):
         "sell_dis",
         "atr_value",
         "long_stop",
-        "short_stop",
-        "intra_trade_high",
-        "intra_trade_low"
+        "short_stop"
     ]
 
     def __init__(self, cta_engine, strategy_name, vt_symbol, setting):
@@ -91,6 +90,8 @@ class OscillatorDriveStrategyHN(CtaTemplate):
         self.sell_vt_orderids = []
         self.short_vt_orderids = []
         self.cover_vt_orderids = []
+
+        self.current_time = time1(0, 0)
 
     def on_init(self):
         """"""
@@ -113,6 +114,28 @@ class OscillatorDriveStrategyHN(CtaTemplate):
         """"""
         self.bg.update_bar(bar)
 
+        if self.get_engine_type() == EngineType.LIVE:
+            self.current_time = datetime.now().time()
+        else:
+            self.current_time = time1(bar.datetime.hour, bar.datetime.minute)
+
+        # 以下停盘前5分钟开始平常出场的逻辑，缺乏细粒度委托控制，需要进一步完善
+        if self.current_time > time1(14, 56):
+            # 停盘前5分钟，首先取消所有尚在活动状态的委托
+            for buf_orderids in [
+                self.buy_vt_orderids,
+                self.sell_vt_orderids,
+                self.short_vt_orderids,
+                self.cover_vt_orderids]:
+                for vt_orderid in buf_orderids:
+                    self.cancel_order(vt_orderid)
+
+            # 然后平仓
+            if self.pos > 0:
+                self.sell_vt_orderids = self.sell(bar.close_price - 5, abs(self.pos))
+            elif self.pos < 0:
+                self.cover_vt_orderids = self.cover(bar.close_price + 5, abs(self.pos))
+
     def on_xmin_bar(self, bar: BarData):
         """"""
         am = self.am
@@ -120,63 +143,83 @@ class OscillatorDriveStrategyHN(CtaTemplate):
         if not am.inited:
             return
 
-        self.boll_up, self.boll_down = am.boll(self.boll_window, self.boll_dev)
+        DAY_START = time1(8, 45)
+        LIQ_TIME = time1(14, 56)
 
-        self.ultosc = am.ultosc()
-        self.buy_dis = 50 + self.dis_open
-        self.sell_dis = 50 - self.dis_open
-        self.atr_value = am.atr(self.atr_window)
+        NIGHT_START = time1(20, 45)
+        NIGHT_END = time1(23, 0)
 
-        if self.pos == 0:
-            self.trading_size = max(int(self.risk_level / self.atr_value), 1)
-            if self.trading_size >= 2:
-                self.trading_size = 2
-            self.intra_trade_high = bar.high_price
-            self.intra_trade_low = bar.low_price
+        if (
+            (self.current_time >= DAY_START and self.current_time <= LIQ_TIME) or
+            (self.current_time >= NIGHT_START and self.current_time <= NIGHT_END)
+        ):
 
-            if self.ultosc > self.buy_dis:
-                if not self.buy_vt_orderids:
-                    self.buy_vt_orderids = self.buy(self.boll_up, self.trading_size, True)
+            self.boll_up, self.boll_down = am.boll(self.boll_window, self.boll_dev)
+
+            self.ultosc = am.ultosc()
+            self.buy_dis = 50 + self.dis_open
+            self.sell_dis = 50 - self.dis_open
+            self.atr_value = am.atr(self.atr_window)
+
+            if self.pos == 0:
+                self.trading_size = max(int(self.risk_level / self.atr_value), 1)
+                if self.trading_size >= 2:
+                    self.trading_size = 2
+                self.intra_trade_high = bar.high_price
+                self.intra_trade_low = bar.low_price
+
+                if self.ultosc > self.buy_dis:
+                    if not self.buy_vt_orderids:
+                        self.buy_vt_orderids = self.buy(self.boll_up, self.trading_size, True)
+                    else:
+                        for vt_orderid in self.buy_vt_orderids:
+                            self.cancel_order(vt_orderid)
+
+                elif self.ultosc < self.sell_dis:
+                    if not self.short_vt_orderids:
+                        self.short_vt_orderids = self.short(self.boll_down, self.trading_size, True)
+                    else:
+                        for vt_orderid in self.short_vt_orderids:
+                            self.cancel_order(vt_orderid)
+
+            elif self.pos > 0:
+                self.intra_trade_high = max(self.intra_trade_high, bar.high_price)
+                self.intra_trade_low = bar.low_price
+
+                self.long_stop = self.intra_trade_high - self.atr_value * self.sl_multiplier
+                
+                if not self.sell_vt_orderids:
+                    self.sell_vt_orderids = self.sell(self.long_stop, abs(self.pos), True)
                 else:
-                    for vt_orderid in self.buy_vt_orderids:
+                    for vt_orderid in self.sell_vt_orderids:
                         self.cancel_order(vt_orderid)
 
-            elif self.ultosc < self.sell_dis:
-                if not self.short_vt_orderids:
-                    self.short_vt_orderids = self.short(self.boll_down, self.trading_size, True)
+            else:
+                self.intra_trade_high = bar.high_price
+                self.intra_trade_low = min(self.intra_trade_low, bar.low_price)
+
+                self.short_stop = self.intra_trade_low + self.atr_value * self.sl_multiplier
+                
+                if not self.cover_vt_orderids:
+                    self.cover_vt_orderids = self.cover(self.short_stop, abs(self.pos), True)
                 else:
-                    for vt_orderid in self.short_vt_orderids:
+                    for vt_orderid in self.cover_vt_orderids:
                         self.cancel_order(vt_orderid)
-
-        elif self.pos > 0:
-            self.intra_trade_high = max(self.intra_trade_high, bar.high_price)
-            self.intra_trade_low = bar.low_price
-
-            self.long_stop = self.intra_trade_high - self.atr_value * self.sl_multiplier
-            
-            if not self.sell_vt_orderids:
-                self.sell_vt_orderids = self.sell(self.long_stop, abs(self.pos), True)
-            else:
-                for vt_orderid in self.sell_vt_orderids:
-                    self.cancel_order(vt_orderid)
-
-        else:
-            self.intra_trade_high = bar.high_price
-            self.intra_trade_low = min(self.intra_trade_low, bar.low_price)
-
-            self.short_stop = self.intra_trade_low + self.atr_value * self.sl_multiplier
-            
-            if not self.cover_vt_orderids:
-                self.cover_vt_orderids = self.cover(self.short_stop, abs(self.pos), True)
-            else:
-                for vt_orderid in self.cover_vt_orderids:
-                    self.cancel_order(vt_orderid)
 
         self.put_event()
 
     def on_order(self, order: OrderData):
         """"""
-        pass
+        if self.current_time > time1(14, 56):
+            if order.status in (Status.ALLTRADED, Status.CANCELLED, Status.REJECTED):
+                for buf_orderids in [
+                    self.buy_vt_orderids,
+                    self.sell_vt_orderids,
+                    self.short_vt_orderids,
+                    self.cover_vt_orderids
+                ]:
+                    if order.orderid in buf_orderids:
+                        buf_orderids.remove(order.stop_orderid)
 
     def on_trade(self, trade: TradeData):
         """"""
@@ -313,7 +356,7 @@ engine = BacktestingEngine()
 engine.set_parameters(
     vt_symbol="rb888.SHFE",
     interval="1m",
-    start=datetime(2020, 1, 1),
+    start=datetime(2021, 1, 1),
     end=datetime(2021, 4, 29),
     rate=0.0001,
     slippage=0.2,
@@ -322,7 +365,7 @@ engine.set_parameters(
     capital=50000,
     mode=BacktestingMode.BAR
 )
-engine.add_strategy(OscillatorDriveStrategyHN, {})
+engine.add_strategy(OscillatorDriveHNTest, {})
 #%%
 start2 = time.time()
 engine.load_data()
