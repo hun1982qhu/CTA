@@ -86,10 +86,15 @@ class OscillatorDriveHNTest(CtaTemplate):
 
         self.pricetick = self.get_pricetick()
 
-        self.buy_vt_orderids = []
-        self.sell_vt_orderids = []
-        self.short_vt_orderids = []
-        self.cover_vt_orderids = []
+        self.buy_svt_orderids = []
+        self.sell_svt_orderids = []
+        self.short_svt_orderids = []
+        self.cover_svt_orderids = []
+
+        self.buy_lvt_orderids = []
+        self.sell_lvt_orderids = []
+        self.short_lvt_orderids = []
+        self.cover_lvt_orderids = []
 
     def on_init(self):
         """"""
@@ -134,18 +139,30 @@ class OscillatorDriveHNTest(CtaTemplate):
             self.intra_trade_low = bar.low_price
 
             if self.ultosc > self.buy_dis:
-                if not self.buy_vt_orderids:
-                    self.buy_vt_orderids = self.buy(self.boll_up, self.trading_size, True)
+                if not self.buy_svt_orderids and not self.buy_lvt_orderids:
+                    self.buy_svt_orderids = self.buy(self.boll_up, self.trading_size, True)
+                
                 else:
-                    for vt_orderid in self.buy_vt_orderids:
-                        self.cancel_order(vt_orderid)
+                    if self.buy_svt_orderids:
+                        for vt_orderid in self.buy_svt_orderids:
+                            self.cancel_order(vt_orderid)
+
+                    if self.buy_lvt_orderids:
+                        for vt_orderid in self.buy_lvt_orderids:
+                            self.cancel_order(vt_orderid)
 
             elif self.ultosc < self.sell_dis:
-                if not self.short_vt_orderids:
-                    self.short_vt_orderids = self.short(self.boll_down, self.trading_size, True)
+                if not self.short_svt_orderids and not self.short_lvt_orderids:
+                    self.short_svt_orderids = self.short(self.boll_down, self.trading_size, True)
+                
                 else:
-                    for vt_orderid in self.short_vt_orderids:
-                        self.cancel_order(vt_orderid)
+                    if self.short_svt_orderids:
+                        for vt_orderid in self.short_svt_orderids:
+                            self.cancel_order(vt_orderid)
+
+                    if self.short_lvt_orderids:
+                        for vt_orderid in self.short_lvt_orderids:
+                            self.cancel_order(vt_orderid)
 
         elif self.pos > 0:
             self.intra_trade_high = max(self.intra_trade_high, bar.high_price)
@@ -153,11 +170,17 @@ class OscillatorDriveHNTest(CtaTemplate):
 
             self.long_stop = self.intra_trade_high - self.atr_value * self.sl_multiplier
             
-            if not self.sell_vt_orderids:
-                self.sell_vt_orderids = self.sell(self.long_stop, abs(self.pos), True)
+            if not self.sell_svt_orderids and not self.sell_lvt_orderids:
+                self.sell_svt_orderids = self.sell(self.long_stop, abs(self.pos), True)
+            
             else:
-                for vt_orderid in self.sell_vt_orderids:
-                    self.cancel_order(vt_orderid)
+                if self.sell_svt_orderids:
+                    for vt_orderid in self.sell_svt_orderids:
+                        self.cancel_order(vt_orderid)
+
+                if self.sell_lvt_orderids:
+                    for vt_orderid in self.sell_lvt_orderids:
+                        self.cancel_order(vt_orderid)
 
         else:
             self.intra_trade_high = bar.high_price
@@ -165,16 +188,54 @@ class OscillatorDriveHNTest(CtaTemplate):
 
             self.short_stop = self.intra_trade_low + self.atr_value * self.sl_multiplier
             
-            if not self.cover_vt_orderids:
-                self.cover_vt_orderids = self.cover(self.short_stop, abs(self.pos), True)
+            if not self.cover_svt_orderids and not self.cover_lvt_orderids:
+                self.cover_svt_orderids = self.cover(self.short_stop, abs(self.pos), True)
+            
             else:
-                for vt_orderid in self.cover_vt_orderids:
-                    self.cancel_order(vt_orderid)
+                if self.cover_svt_orderids:
+                    for vt_orderid in self.cover_svt_orderids:
+                        self.cancel_order(vt_orderid)
+
+                if self.cover_lvt_orderids:
+                    for vt_orderid in self.cover_lvt_orderids:
+                        self.cancel_order(vt_orderid)
 
         self.put_event()
 
     def on_order(self, order: OrderData):
         """"""
+        # ACTIVE_STATUSES = set([Status.SUBMITTING, Status.NOTTRADED, Status.PARTTRADED])
+        if order.is_active():
+            return
+        
+        # not ACTIVE_STATUSES = set([Status.ALLTRADED, Status.CANCELLED, Status.REJECTED])
+        for buf_orderids in [
+            self.buy_lvt_orderids,
+            self.sell_lvt_orderids,
+            self.short_lvt_orderids,
+            self.cover_lvt_orderids
+        ]:
+            if order.orderid in buf_orderids:
+                buf_orderids.remove(order.orderid)
+
+        if order.status in [Status.CANCELLED, Status.REJECTED]:
+            if self.pos == 0:
+                if self.ultosc > self.buy_dis:
+                    if not self.buy_svt_orderids and not self.buy_lvt_orderids:
+                        self.buy_svt_orderids = self.buy(self.boll_up, self.trading_size, True)
+
+                elif self.ultosc < self.sell_dis:
+                    if not self.short_svt_orderids and not self.short_lvt_orderids:
+                        self.short_svt_orderids = self.short(self.boll_down, self.trading_size, True)
+
+            elif self.pos > 0:
+                if not self.sell_svt_orderids and not self.sell_lvt_orderids:
+                    self.sell_svt_orderids = self.sell(self.long_stop, abs(self.pos), True)
+
+            else:
+                if not self.cover_svt_orderids and not self.cover_lvt_orderids:
+                    self.cover_svt_orderids = self.cover(self.short_stop, abs(self.pos), True)
+
         self.put_event()
 
     def on_trade(self, trade: TradeData):
@@ -188,31 +249,44 @@ class OscillatorDriveHNTest(CtaTemplate):
             return
 
         for buf_orderids in [
-            self.buy_vt_orderids,
-            self.sell_vt_orderids,
-            self.short_vt_orderids,
-            self.cover_vt_orderids
+            self.buy_svt_orderids,
+            self.sell_svt_orderids,
+            self.short_svt_orderids,
+            self.cover_svt_orderids
         ]:
             if stop_order.stop_orderid in buf_orderids:
                 buf_orderids.remove(stop_order.stop_orderid)
 
+        if stop_order.status == StopOrderStatus.TRIGGERED:
+            if stop_order.offset == Offset.OPEN and stop_order.direction == Direction.LONG:
+                self.buy_lvt_orderids = self.cta_engine.strategy_orderid_map[strategy_name]
+            
+            elif stop_order.offset == Offset.OPEN and stop_order.direction == Direction.SHORT:
+                self.short_lvt_orderids = self.cta_engine.strategy_orderid_map[strategy_name]
+            
+            elif stop_order.offset == Offset.CLOSE and stop_order.direction == Direction.SHORT:
+                self.sell_lvt_orderids = self.cta_engine.strategy_orderid_map[strategy_name]
+            
+            elif stop_order.offset == Offset.CLOSE and stop_order.direction == Direction.LONG:
+                self.cover_lvt_orderids = self.cta_engine.strategy_orderid_map[strategy_name]
+
         if stop_order.status == StopOrderStatus.CANCELLED:
             if self.pos == 0:
                 if self.ultosc > self.buy_dis:
-                    if not self.buy_vt_orderids:
-                        self.buy_vt_orderids = self.buy(self.boll_up, self.trading_size, True)
+                    if not self.buy_svt_orderids and not self.buy_lvt_orderids:
+                        self.buy_svt_orderids = self.buy(self.boll_up, self.trading_size, True)
 
                 elif self.ultosc < self.sell_dis:
-                    if not self.short_vt_orderids:
-                        self.short_vt_orderids = self.short(self.boll_down, self.trading_size, True)
+                    if not self.short_svt_orderids and not self.short_lvt_orderids:
+                        self.short_svt_orderids = self.short(self.boll_down, self.trading_size, True)
 
             elif self.pos > 0:  
-                if not self.sell_vt_orderids:
-                    self.sell_vt_orderids = self.sell(self.long_stop, abs(self.pos), True)
+                if not self.sell_svt_orderids and not self.sell_lvt_orderids:
+                    self.sell_svt_orderids = self.sell(self.long_stop, abs(self.pos), True)
 
             else:     
-                if not self.cover_vt_orderids:
-                    self.cover_vt_orderids = self.cover(self.short_stop, abs(self.pos), True)
+                if not self.cover_svt_orderids and not self.cover_lvt_orderids:
+                    self.cover_svt_orderids = self.cover(self.short_stop, abs(self.pos), True)
 
         self.put_event()        
 
