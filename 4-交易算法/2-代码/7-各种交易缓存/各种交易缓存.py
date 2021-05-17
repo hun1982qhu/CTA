@@ -1,5 +1,7 @@
 from vnpy.app.cta_strategy.engine import CtaEngine
+from vnpy.app.cta_strategy.base import StopOrder
 from vnpy.trader.object import OrderData
+from vnpy.tra
 
 ctaengine = CtaEngine()
 
@@ -14,3 +16,6 @@ ctaengine.strategies  # strategy_name: strategy
 order = OrderData()
 orderid = order.orderid
 vt_orderid = f"{self.gateway_name}.{self.orderid}"
+
+stoporder = StopOrder()
+stoporder.vt_orderids

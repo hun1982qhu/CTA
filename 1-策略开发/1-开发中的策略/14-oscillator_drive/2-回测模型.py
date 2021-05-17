@@ -175,6 +175,7 @@ class OscillatorDriveHNTest(CtaTemplate):
 
     def on_order(self, order: OrderData):
         """"""
+        print(order.orderid)
         self.put_event()
 
     def on_trade(self, trade: TradeData):
@@ -183,6 +184,7 @@ class OscillatorDriveHNTest(CtaTemplate):
 
     def on_stop_order(self, stop_order: StopOrder):
         """"""
+        print(stop_order.vt_orderids)
         # 只处理CANCELLED和TRIGGERED这两种状态的委托
         if stop_order.status == StopOrderStatus.WAITING:
             return
