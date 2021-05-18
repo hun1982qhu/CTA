@@ -1,6 +1,9 @@
 二十一、vscode的各种操作快捷键
 ctrl + \ 分页
-ctrl + j 打开问题展示面板
+ctrl + j 在vscode中打开cmd或者shellpower的终端
+在终端中输入dir可以查看当前目录下的文件名及数量等
+输入cls 可以清空终端显示
+
 ctrl + k, ctrl + 2 折叠所有代码
 ctrl + k, ctrl + 1 进一步折叠所有代码
 Ctrl+K, Ctrl+0 折叠所有代码
