@@ -164,7 +164,7 @@ class TradeStrategy(CtaTemplate):
             "time": trade.time
         }
         self.writer.writerow(d)
-        self.f.flush()      # 强制同步
+        self.f.flush()      # 强制同步 强制保存
 
         self.put_event()
 
