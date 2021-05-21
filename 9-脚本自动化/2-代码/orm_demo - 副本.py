@@ -9,6 +9,7 @@ from peewee import (
     SqliteDatabase
 )
 
+
 # 使用vn.py运行时目录的SQLite数据库
 from vnpy.trader.utility import get_file_path
 from vnpy.trader.setting import SETTINGS

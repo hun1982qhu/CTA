@@ -202,6 +202,54 @@ class OscillatorDriveHNTest(CtaTemplate):
 
         self.put_event()
 
+    def on_stop_order(self, stop_order: StopOrder):
+        """"""
+        # 只处理CANCELLED和TRIGGERED这两种状态的委托
+        if stop_order.status == StopOrderStatus.WAITING:
+            return
+
+        for buf_orderids in [
+            self.buy_svt_orderids,
+            self.sell_svt_orderids,
+            self.short_svt_orderids,
+            self.cover_svt_orderids
+        ]:
+            if stop_order.stop_orderid in buf_orderids:
+                buf_orderids.remove(stop_order.stop_orderid)
+
+        if stop_order.status == StopOrderStatus.TRIGGERED:
+            if stop_order.offset == Offset.OPEN and stop_order.direction == Direction.LONG:
+                self.buy_lvt_orderids = stop_order.vt_orderids
+            
+            elif stop_order.offset == Offset.OPEN and stop_order.direction == Direction.SHORT:
+                self.short_lvt_orderids = stop_order.vt_orderids
+            
+            elif stop_order.offset == Offset.CLOSE and stop_order.direction == Direction.SHORT:
+                self.sell_lvt_orderids = stop_order.vt_orderids
+            
+            elif stop_order.offset == Offset.CLOSE and stop_order.direction == Direction.LONG:
+                self.cover_lvt_orderids = stop_order.vt_orderids
+
+        if stop_order.status == StopOrderStatus.CANCELLED:
+            if self.pos == 0:
+                if self.ultosc > self.buy_dis:
+                    if not self.buy_svt_orderids and not self.buy_lvt_orderids:
+                        self.buy_svt_orderids = self.buy(self.boll_up, self.trading_size, True)
+
+                elif self.ultosc < self.sell_dis:
+                    if not self.short_svt_orderids and not self.short_lvt_orderids:
+                        self.short_svt_orderids = self.short(self.boll_down, self.trading_size, True)
+
+            elif self.pos > 0:  
+                if not self.sell_svt_orderids and not self.sell_lvt_orderids:
+                    self.sell_svt_orderids = self.sell(self.long_stop, abs(self.pos), True)
+
+            else:     
+                if not self.cover_svt_orderids and not self.cover_lvt_orderids:
+                    self.cover_svt_orderids = self.cover(self.short_stop, abs(self.pos), True)
+
+        self.put_event()
+    
     def on_order(self, order: OrderData):
         """"""
         # ACTIVE_STATUSES = set([Status.SUBMITTING, Status.NOTTRADED, Status.PARTTRADED])
@@ -214,6 +262,7 @@ class OscillatorDriveHNTest(CtaTemplate):
             self.sell_lvt_orderids,
             self.short_lvt_orderids,
             self.cover_lvt_orderids
+
         ]:
             if order.orderid in buf_orderids:
                 buf_orderids.remove(order.orderid)
@@ -242,55 +291,7 @@ class OscillatorDriveHNTest(CtaTemplate):
         """"""
         self.put_event()
 
-    def on_stop_order(self, stop_order: StopOrder):
-        """"""
-        # 只处理CANCELLED和TRIGGERED这两种状态的委托
-        if stop_order.status == StopOrderStatus.WAITING:
-            return
-
-        for buf_orderids in [
-            self.buy_svt_orderids,
-            self.sell_svt_orderids,
-            self.short_svt_orderids,
-            self.cover_svt_orderids
-        ]:
-            if stop_order.stop_orderid in buf_orderids:
-                buf_orderids.remove(stop_order.stop_orderid)
-
-        if stop_order.status == StopOrderStatus.TRIGGERED:
-            if stop_order.offset == Offset.OPEN and stop_order.direction == Direction.LONG:
-                self.buy_lvt_orderids = self.cta_engine.strategy_orderid_map[strategy_name]
-            
-            elif stop_order.offset == Offset.OPEN and stop_order.direction == Direction.SHORT:
-                self.short_lvt_orderids = self.cta_engine.strategy_orderid_map[strategy_name]
-            
-            elif stop_order.offset == Offset.CLOSE and stop_order.direction == Direction.SHORT:
-                self.sell_lvt_orderids = self.cta_engine.strategy_orderid_map[strategy_name]
-            
-            elif stop_order.offset == Offset.CLOSE and stop_order.direction == Direction.LONG:
-                self.cover_lvt_orderids = self.cta_engine.strategy_orderid_map[strategy_name]
-
-        if stop_order.status == StopOrderStatus.CANCELLED:
-            if self.pos == 0:
-                if self.ultosc > self.buy_dis:
-                    if not self.buy_svt_orderids and not self.buy_lvt_orderids:
-                        self.buy_svt_orderids = self.buy(self.boll_up, self.trading_size, True)
-
-                elif self.ultosc < self.sell_dis:
-                    if not self.short_svt_orderids and not self.short_lvt_orderids:
-                        self.short_svt_orderids = self.short(self.boll_down, self.trading_size, True)
-
-            elif self.pos > 0:  
-                if not self.sell_svt_orderids and not self.sell_lvt_orderids:
-                    self.sell_svt_orderids = self.sell(self.long_stop, abs(self.pos), True)
-
-            else:     
-                if not self.cover_svt_orderids and not self.cover_lvt_orderids:
-                    self.cover_svt_orderids = self.cover(self.short_stop, abs(self.pos), True)
-
-        self.put_event()        
-
-
+          
 class XminBarGenerator(BarGenerator):
     def __init__(
         self,
