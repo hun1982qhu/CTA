@@ -9,37 +9,6 @@ print(type(stop_orders.values()))
 print(list(stop_orders.values()))
 
 #%%
-d = {"a":1, "b":2}
-
-while True:
-
-    name = input('请输入您的用户名：')
-
-    if name in d:
-
-        break
-
-    else:
-
-        print('您输入的用户名不存在，请重新输入')
-
-        continue
-
- 
-
-while True:
-
-    password = input('请输入您的密码：')
-
-    if d[name] == password:
-
-        print('进入系统')
-
-        break
-
-    else:
-
-        print('您输入的密码不正确，请重新输入')
-
-        continue
+a = set([1, 1, 2, 3])
+print(a)
 # %%
