@@ -1,14 +1,11 @@
-#%%
-vt_orderis = "abcd.1234"
-gateway, vt_orderid = vt_orderis.split(".")
-print(gateway, vt_orderid)
+a = 2
+b = 3
 
-stop_orders = {"a":1,"b":2, "c":3}
-print(stop_orders.values())
-print(type(stop_orders.values()))
-print(list(stop_orders.values()))
+if (
+    (a > 1) or
+    (b >2)
+    ):
+    print("hao")
 
-#%%
-a = set([1, 1, 2, 3])
-print(a)
-# %%
+print(f"测试{a}")
+
