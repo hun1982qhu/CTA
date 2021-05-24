@@ -133,12 +133,14 @@ class OscillatorDriveHNTest(CtaTemplate):
 
         # 交易日下午3点收盘前开始清仓
         if self.current_time >= self.day_end:
+            self.write_log("现在开始清仓，当前时间:{self.current_time}")
 
             # 首先检查有没有处在活动状态的委托，如果所有委托缓存列表都为空则执行清仓操作
             if not self.buy_svt_orderids and not self.buy_lvt_orderids\
                 and not self.sell_svt_orderids and not self.sell_lvt_orderids\
                     and not self.short_svt_orderids and not self.short_lvt_orderids\
                         and not self.cover_svt_orderids and not self.cover_lvt_orderids:
+                        self.write_log("没有处于活动状态的委托")
                                                
                         if self.pos > 0:
                             if not self.sell_vt_orderids:
