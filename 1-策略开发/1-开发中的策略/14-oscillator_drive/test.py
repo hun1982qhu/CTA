@@ -1,11 +1,3 @@
-a = 2
-b = 3
+a = "终极指标策略"
 
-if (
-    (a > 1) or
-    (b >2)
-    ):
-    print("hao")
-
-print(f"测试{a}")
-
+print(f"{a}")
