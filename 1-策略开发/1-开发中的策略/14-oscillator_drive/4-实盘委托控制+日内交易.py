@@ -124,6 +124,7 @@ class OscillatorDriveHNTest(CtaTemplate):
     def on_tick(self, tick: TickData):
         """"""
         self.bg.update_tick(tick)
+        print(tick.datetime)
 
     def on_bar(self, bar: BarData):
         """"""
@@ -133,7 +134,7 @@ class OscillatorDriveHNTest(CtaTemplate):
 
         # 交易日下午3点收盘前开始清仓
         if self.current_time >= self.day_end:
-            self.write_log("现在开始清仓，当前时间:{self.current_time}")
+            self.write_log(f"现在开始清仓，当前时间:{self.current_time}")
 
             # 首先检查有没有处在活动状态的委托，如果所有委托缓存列表都为空则执行清仓操作
             if not self.buy_svt_orderids and not self.buy_lvt_orderids\
