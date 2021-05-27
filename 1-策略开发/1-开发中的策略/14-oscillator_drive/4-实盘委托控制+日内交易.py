@@ -107,6 +107,7 @@ class OscillatorDriveHNTest(CtaTemplate):
         self.current_time = time1(0, 0)
         self.day_start = time1(8, 45)
         self.day_end = time1(14, 56)
+        self.liq_time = time1(15, 0)
         self.night_start = time1(20, 45)
         self.night_end = time1(23, 0)
 
@@ -149,29 +150,34 @@ class OscillatorDriveHNTest(CtaTemplate):
         self.current_time = datetime.now().time()
 
         # 交易日下午3点收盘前开始清仓
-        if self.current_time >= self.day_end:
-            self.write_log(f"现在开始清仓，当前时间:{self.current_time}")
+        if self.current_time >= self.day_end and self.current_time <= self.liq_time:
+            self.write_log(f"进入清仓时段，当前时间:{self.current_time}")
 
             # 首先检查有没有处在活动状态的委托，如果所有委托缓存列表都为空则执行清仓操作
             if not self.buy_svt_orderids and not self.buy_lvt_orderids\
                 and not self.sell_svt_orderids and not self.sell_lvt_orderids\
                     and not self.short_svt_orderids and not self.short_lvt_orderids\
                         and not self.cover_svt_orderids and not self.cover_lvt_orderids:
-                        self.write_log("没有处于活动状态的委托")
+                        self.write_log("进入清仓时段，无交易时段留下的活动委托")
                                                
                         if self.pos > 0:
                             if not self.sell_vt_orderids:
                                 self.sell_vt_orderids = self.sell(bar.close_price - 5, abs(self.pos))
+                                self.write_log("清仓时段，发出平多仓委托")
                             else:
                                 for vt_orderid in self.sell_vt_orderids:
                                     self.cancel_order(vt_orderid)
+                                    self.write_log("清仓时段，撤销前1分钟留下的活动平多仓委托")
 
                         elif self.pos < 0:
                             if not self.cover_vt_orderids:
                                 self.cover_vt_orderids = self.cover(bar.close_price + 5, abs(self.pos))
+                                self.write_log("清仓时段，发出平空仓委托")
+
                             else:
                                 for vt_orderid in self.cover_vt_orderids:
                                     self.cancel_order(vt_orderid)
+                                    self.write_log("清仓时段，撤销前1分钟留下的活动平空仓委托")
             
             # 如果有非空委托缓存列表，则先撤销其中的委托
             else:         
@@ -187,6 +193,7 @@ class OscillatorDriveHNTest(CtaTemplate):
 
                     for vt_orderid in buf_orderids:
                         self.cancel_order(vt_orderid)
+                        self.write_log("清仓时段，撤销交易时段留下的活动委托")
 
     def on_xmin_bar(self, bar: BarData):
         """"""
@@ -221,30 +228,35 @@ class OscillatorDriveHNTest(CtaTemplate):
                     if not self.buy_svt_orderids and not self.buy_lvt_orderids and not self.svt_orderids and not self.lvt_orderids:
                         self.buy_svt_orderids = self.buy(self.boll_up, self.trading_size, True)
                         self.svt_orderids.extend(self.buy_svt_orderids)
-                        self.write_log("在on_xmin_bar下开多仓")
+                        self.write_log(f"在on_xmin_bar下开多仓，停止单号：{self.buy_svt_orderids}，委托手数：{self.trading_size}")
                     
                     else:
                         if self.svt_orderids:
                             for vt_orderid in self.svt_orderids:
                                 self.cancel_order(vt_orderid)
+                                self.write_log(f"在on_xmin_bar下满足开多仓条件，发出撤销上个周期留下的活动停止单的指令，停止单号{vt_orderid}")
 
                         if self.lvt_orderids:
                             for vt_orderid in self.lvt_orderids:
                                 self.cancel_order(vt_orderid)
+                                self.write_log(f"在on_xmin_bar下满足开多仓条件，发出撤销上个周期留下的活动限价单的指令，限价单号{vt_orderid}")
 
                 elif self.ultosc < self.sell_dis:
                     if not self.short_svt_orderids and not self.short_lvt_orderids and not self.svt_orderids and not self.lvt_orderids:
                         self.short_svt_orderids = self.short(self.boll_down, self.trading_size, True)
                         self.svt_orderids.extend(self.short_svt_orderids)
+                        self.write_log(f"在on_xmin_bar下开多仓，停止单号：{self.buy_svt_orderids}，委托手数：{self.trading_size}")
                     
                     else:
                         if self.svt_orderids:
                             for vt_orderid in self.svt_orderids:
                                 self.cancel_order(vt_orderid)
+                                self.write_log(f"在on_xmin_bar下满足开空仓条件，发出撤销上个周期留下的活动停止单的指令，停止单号{vt_orderid}")
 
                         if self.lvt_orderids:
                             for vt_orderid in self.lvt_orderids:
                                 self.cancel_order(vt_orderid)
+                                self.write_log(f"在on_xmin_bar下满足开空仓条件，发出撤销上个周期留下的活动限价单的指令，限价单号{vt_orderid}")
 
             elif self.pos > 0:
                 self.intra_trade_high = max(self.intra_trade_high, bar.high_price)
@@ -254,15 +266,18 @@ class OscillatorDriveHNTest(CtaTemplate):
                 
                 if not self.sell_svt_orderids and not self.sell_lvt_orderids:
                     self.sell_svt_orderids = self.sell(self.long_stop, abs(self.pos), True)
+                    self.write_log(f"在on_xmin_bar下平多仓，停止单号：{self.sell_svt_orderids}，委托手数：{self.trading_size}")
                 
                 else:
                     if self.sell_svt_orderids:
                         for vt_orderid in self.sell_svt_orderids:
                             self.cancel_order(vt_orderid)
+                            self.write_log(f"在on_xmin_bar下满足平多仓条件，发出撤销上个周期留下的活动停止单的指令，停止单号{vt_orderid}")
 
                     if self.sell_lvt_orderids:
                         for vt_orderid in self.sell_lvt_orderids:
                             self.cancel_order(vt_orderid)
+                            self.write_log(f"在on_xmin_bar下满足平多仓条件，发出撤销上个周期留下的活动限价单的指令，限价单号{vt_orderid}")
 
             else:
                 self.intra_trade_high = bar.high_price
@@ -272,18 +287,18 @@ class OscillatorDriveHNTest(CtaTemplate):
                 
                 if not self.cover_svt_orderids and not self.cover_lvt_orderids:
                     self.cover_svt_orderids = self.cover(self.short_stop, abs(self.pos), True)
+                    self.write_log(f"在on_xmin_bar下平空仓，停止单号：{self.cover_svt_orderids}，委托手数：{self.trading_size}")
                 
                 else:
                     if self.cover_svt_orderids:
                         for vt_orderid in self.cover_svt_orderids:
                             self.cancel_order(vt_orderid)
+                            self.write_log(f"在on_xmin_bar下满足平空仓条件，发出撤销上个周期留下的活动停止单的指令，停止单号{vt_orderid}")
 
                     if self.cover_lvt_orderids:
                         for vt_orderid in self.cover_lvt_orderids:
                             self.cancel_order(vt_orderid)
-
-        else:
-            self.write_log(f"已不在交易时段，当前时间:{self.current_time}")
+                            self.write_log(f"在on_xmin_bar下满足平空仓条件，发出撤销上个周期留下的活动限价单的指令，限价单号{vt_orderid}")
 
         self.put_event()
 
@@ -358,14 +373,8 @@ class OscillatorDriveHNTest(CtaTemplate):
             return
         
         # not ACTIVE_STATUSES = set([Status.ALLTRADED, Status.CANCELLED, Status.REJECTED])
-        self.current_time = datetime.now().time()
 
-        if (
-            (self.current_time >= self.day_start and self.current_time < self.day_end) or
-            (self.current_time >= self.night_start and self.current_time <= self.night_end)
-            ):
-            
-            for buf_orderids in [
+        for buf_orderids in [
                 self.buy_lvt_orderids,
                 self.sell_lvt_orderids,
                 self.short_lvt_orderids,
@@ -373,8 +382,15 @@ class OscillatorDriveHNTest(CtaTemplate):
                 if order.orderid in buf_orderids:
                     buf_orderids.remove(order.orderid)
 
-            if order.orderid in self.lvt_orderids:
-                self.lvt_orderids.remove(order.orderid)
+        if order.orderid in self.lvt_orderids:
+            self.lvt_orderids.remove(order.orderid)
+
+        self.current_time = datetime.now().time()
+
+        if (
+            (self.current_time >= self.day_start and self.current_time < self.day_end) or
+            (self.current_time >= self.night_start and self.current_time <= self.night_end)
+            ):
 
             if order.status in [Status.CANCELLED, Status.REJECTED]:
                 if self.pos == 0:
@@ -396,7 +412,7 @@ class OscillatorDriveHNTest(CtaTemplate):
                     if not self.cover_svt_orderids and not self.cover_lvt_orderids:
                         self.cover_svt_orderids = self.cover(self.short_stop, abs(self.pos), True)
 
-        else:
+        elif self.current_time >= self.day_end and self.current_time <= self.liq_time:
             for buf_orderids in [
                 self.sell_vt_orderids, 
                 self.cover_vt_orderids]:              
@@ -430,7 +446,7 @@ class OscillatorDriveHNTest(CtaTemplate):
 
         self.put_event()
 
-          
+
 class XminBarGenerator(BarGenerator):
     def __init__(
         self,
