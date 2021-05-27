@@ -1,4 +1,6 @@
 #%%
+import csv
+
 from logging import currentframe
 from typing import Any, Callable
 from vnpy.app.cta_strategy import (
@@ -107,6 +109,20 @@ class OscillatorDriveHNTest(CtaTemplate):
         self.day_end = time1(14, 56)
         self.night_start = time1(20, 45)
         self.night_end = time1(23, 0)
+
+        fields = [
+            "vt_symbol",
+            "orderid",
+            "tradeid",
+            "offset",
+            "direction",
+            "price",
+            "volume",
+            "datetime"
+        ]
+        self.f = open("trade_record.csv", "w")
+        self.writer = csv.DictWriter(self.f, fields)
+        self.writer.writeheader()
 
     def on_init(self):
         """"""
@@ -400,6 +416,18 @@ class OscillatorDriveHNTest(CtaTemplate):
 
     def on_trade(self, trade: TradeData):
         """"""
+        d = {
+            "vt_symbol": trade.vt_symbol,
+            "orderid": trade.orderid,
+            "offset": trade.offset,
+            "direction": trade.direction,
+            "price": trade.price,
+            "volume": trade.volume,
+            "datetime": trade.datetime
+        }
+        self.writer.writerow(d)
+        self.f.flush()  # 强制同步
+
         self.put_event()
 
           
