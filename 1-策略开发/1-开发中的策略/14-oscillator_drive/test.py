@@ -1,3 +1,4 @@
+#%%
 import csv
 
 fields = [
@@ -11,14 +12,15 @@ fields = [
     "datetime"
     ]
 
-f = open("trade_record.csv", "w")
+file = open("trade_record.csv", "a", newline="")
 
-writer = csv.DictWriter(f, fields)
+file_writer = csv.DictWriter(file, fields)
 
-writer.writeheader()
+file_writer.writeheader()
 
+#%%
 d = {
-    "vt_symbol": 1,
+    "vt_symbol": 4,
     "orderid": 2,
     "tradeid": 3,
     "offset": 4,
@@ -28,6 +30,7 @@ d = {
     "datetime": 8
     }
 
-writer.writerow(d)
+file_writer.writerow(d)
 
-f.flush()  # 强制同步
+file.flush()  # 强制同步
+# %%

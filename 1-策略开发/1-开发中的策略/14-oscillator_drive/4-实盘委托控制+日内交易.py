@@ -88,8 +88,6 @@ class OscillatorDriveHNTest(CtaTemplate):
         self.bg = XminBarGenerator(self.on_bar, self.interval, self.on_xmin_bar)
         self.am = ArrayManager()
 
-        self.pricetick = self.get_pricetick()
-
         self.svt_orderids = []
         self.lvt_orderids = []
 
@@ -108,12 +106,12 @@ class OscillatorDriveHNTest(CtaTemplate):
 
         self.current_time = time1(0, 0)
         self.day_start = time1(8, 45)
-        self.day_end = time1(14, 56)
+        self.day_end = time1(14, 54)
         self.liq_time = time1(15, 0)
         self.night_start = time1(20, 45)
         self.night_end = time1(23, 0)
 
-        fields = [
+        trade_record_fields = [
             "vt_symbol",
             "orderid",
             "tradeid",
@@ -123,9 +121,9 @@ class OscillatorDriveHNTest(CtaTemplate):
             "volume",
             "datetime"
         ]
-        self.f = open("trade_record.csv", "w")
-        self.writer = csv.DictWriter(self.f, fields)
-        self.writer.writeheader()
+        self.trade_record_file = open("trade_record.csv", "a", newline="")
+        self.trade_record_file_writer = csv.DictWriter(self.trade_record_file, trade_record_fields)
+        self.trade_record_file_writer.writeheader()
 
     def on_init(self):
         """"""
@@ -454,7 +452,10 @@ class OscillatorDriveHNTest(CtaTemplate):
 
     def on_trade(self, trade: TradeData):
         """"""
-        d = {
+        
+        self.write_log(f"on_trade {trade.vt_symbol} {trade.orderid} {trade.offset} {trade.direction} {trade.price} {trade.volume} {trade.datetime}")
+        
+        trade_record_dict = {
             "vt_symbol": trade.vt_symbol,
             "orderid": trade.orderid,
             "offset": trade.offset,
@@ -463,9 +464,10 @@ class OscillatorDriveHNTest(CtaTemplate):
             "volume": trade.volume,
             "datetime": trade.datetime
         }
-        self.writer.writerow(d)
-        self.f.flush()  # 强制同步
-        self.write_log(f"on_trade {trade.vt_symbol} {trade.orderid} {trade.offset} {trade.direction} {trade.price} {trade.volume} {trade.datetime}")
+        self.trade_record_file_writer.writerow(trade_record_dict)
+        self.trade_record_file.flush()  # 强制同步
+        
+        self.write_log("成交记录已保存")
 
         self.put_event()
 
