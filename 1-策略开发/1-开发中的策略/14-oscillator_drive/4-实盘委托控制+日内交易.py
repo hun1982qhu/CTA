@@ -50,7 +50,7 @@ class OscillatorDriveHNTest(CtaTemplate):
     boll_down = 0
     ultosc = 0
     buy_dis = 0
-    sell_dis = 0
+    short_dis = 0
     atr_value = 0
     long_stop = 0
     short_stop = 0
@@ -73,7 +73,7 @@ class OscillatorDriveHNTest(CtaTemplate):
         "boll_down",
         "ultosc",
         "buy_dis",
-        "sell_dis",
+        "short_dis",
         "atr_value",
         "long_stop",
         "short_stop",
@@ -106,7 +106,7 @@ class OscillatorDriveHNTest(CtaTemplate):
 
         self.current_time = time1(0, 0)
         self.day_start = time1(8, 45)
-        self.day_end = time1(14, 54)
+        self.day_end = time1(14, 58)
         self.liq_time = time1(15, 0)
         self.night_start = time1(20, 45)
         self.night_end = time1(23, 0)
@@ -184,7 +184,6 @@ class OscillatorDriveHNTest(CtaTemplate):
                             self.cancel_order(vt_orderid)
                             self.write_log("清仓时段，撤销交易时段活动委托")
 
-
     def on_xmin_bar(self, bar: BarData):
         """"""
         am = self.am
@@ -196,7 +195,7 @@ class OscillatorDriveHNTest(CtaTemplate):
 
         self.ultosc = am.ultosc()
         self.buy_dis = 50 + self.dis_open
-        self.sell_dis = 50 - self.dis_open
+        self.short_dis = 50 - self.dis_open
         self.atr_value = am.atr(self.atr_window)
 
         self.current_time = datetime.now().time()
@@ -234,7 +233,7 @@ class OscillatorDriveHNTest(CtaTemplate):
                                 self.cancel_order(vt_orderid)
                                 self.write_log(f"on_xmin_bar满足开多仓条件，撤销上个周期活动限价单，限价单号{vt_orderid}")
 
-                elif self.ultosc < self.sell_dis:
+                elif self.ultosc < self.short_dis:
                     if not self.short_svt_orderids and not self.short_lvt_orderids and not self.svt_orderids and not self.lvt_orderids:
                         self.short_svt_orderids = self.short(self.boll_down, self.trading_size, True)
                         self.svt_orderids.extend(self.short_svt_orderids)
@@ -355,7 +354,7 @@ class OscillatorDriveHNTest(CtaTemplate):
                             self.write_log(f"on_stop_order开多仓，停止单号：{self.buy_svt_orderids}，委托手数：{self.trading_size}")
                             
 
-                    elif self.ultosc < self.sell_dis:
+                    elif self.ultosc < self.short_dis:
                         if not self.short_svt_orderids and not self.short_lvt_orderids and not self.svt_orderids and not self.lvt_orderids:
                             self.short_svt_orderids = self.short(self.boll_down, self.trading_size, True)
                             self.svt_orderids.extend(self.short_svt_orderids)
@@ -412,7 +411,7 @@ class OscillatorDriveHNTest(CtaTemplate):
                             self.svt_orderids.extend(self.buy_svt_orderids)
                             self.write_log(f"on_order开多仓，停止单号：{self.buy_svt_orderids}，委托手数：{self.trading_size}")
 
-                    elif self.ultosc < self.sell_dis:
+                    elif self.ultosc < self.short_dis:
                         if not self.short_svt_orderids and not self.short_lvt_orderids and not self.svt_orderids and not self.lvt_orderids:
                             self.short_svt_orderids = self.short(self.boll_down, self.trading_size, True)
                             self.svt_orderids.extend(self.short_svt_orderids)
