@@ -60,10 +60,10 @@ def run_child():
     SETTINGS["log.file"] = True
 
     event_engine = EventEngine()
-    main_engine = MainEngine(event_engine)
-    main_engine.add_gateway(CtpGateway)
-    cta_engine = main_engine.add_app(CtaStrategyApp)
-    main_engine.write_log("主引擎创建成功")
+    main_engine = MainEngine(event_engine)  # 主引擎是事件驱动的，因此只有event_engine这一个入参
+    main_engine.add_gateway(CtpGateway)  # 主引擎添加数据接口
+    cta_engine = main_engine.add_app(CtaStrategyApp)  # 主引擎添加CtaStrategyApp，即创建了cta_engine
+    main_engine.write_log("主引擎创建成功")  # 上述步骤全部完成即创建了一个用户所需要的的主引擎
 
     log_engine = main_engine.get_engine("log")
     event_engine.register(EVENT_CTA_LOG, log_engine.process_log_event)
@@ -78,16 +78,16 @@ def run_child():
 
     main_engine.write_log("CTA引擎初始化完成")
 
-    strategy_name = "终极震荡指标"
+    HNstrategy_name = "终极震荡指标策略"
 
-    cta_engine.init_strategy(strategy_name)
+    cta_engine.init_strategy(HNstrategy_name)
     sleep(20)   # Leave enough time to complete strategy initialization
     
-    main_engine.write_log(f"{strategy_name}完成初始化")
+    main_engine.write_log(f"{HNstrategy_name}完成初始化")
 
-    cta_engine.start_strategy(strategy_name)
+    cta_engine.start_strategy(HNstrategy_name)
 
-    main_engine.write_log(f"{strategy_name}已启动")
+    main_engine.write_log(f"{HNstrategy_name}已启动")
 
     while True:
         sleep(10)

@@ -91,18 +91,18 @@ class OscillatorDriveHNTest(CtaTemplate):
         self.svt_orderids = []
         self.lvt_orderids = []
 
+        self.sell_vt_orderids = []  # 清仓时段专用交易缓存
+        self.cover_vt_orderids = []  # 清仓时段专用交易缓存
+
         self.buy_svt_orderids = []
-        self.sell_svt_orderids = []
         self.short_svt_orderids = []
+        self.sell_svt_orderids = []
         self.cover_svt_orderids = []
 
         self.buy_lvt_orderids = []
-        self.sell_lvt_orderids = []
         self.short_lvt_orderids = []
+        self.sell_lvt_orderids = []
         self.cover_lvt_orderids = []
-
-        self.sell_vt_orderids = []
-        self.cover_vt_orderids = []
 
         self.current_time = time1(0, 0)
         self.day_start = time1(8, 45)
@@ -121,7 +121,7 @@ class OscillatorDriveHNTest(CtaTemplate):
             "volume",
             "datetime"
         ]
-        self.trade_record_file = open("trade_record.csv", "a", newline="")
+        self.trade_record_file = open("D:/CTA/1-策略开发/1-开发中的策略/14-oscillator_drive/trade_record.csv", "a", newline="")
         self.trade_record_file_writer = csv.DictWriter(self.trade_record_file, trade_record_fields)
         self.trade_record_file_writer.writeheader()
 
@@ -200,13 +200,9 @@ class OscillatorDriveHNTest(CtaTemplate):
 
         self.current_time = datetime.now().time()
 
-        if (
-            (self.current_time >= self.day_start and self.current_time < self.day_end) or
-            (self.current_time >= self.night_start and self.current_time <= self.night_end)
-        ):
+        if ((self.day_start <= self.current_time < self.day_end) or (self.night_start <= self.current_time <= self.night_end)):
 
-            print(f"on_xmin_bar {bar.datetime}")
-            print(f"self.pos:{self.pos}")
+            print(f"on_xmin_bar self.pos:{self.pos} {bar.datetime}")
 
             if self.pos == 0:
                 self.trading_size = max(int(self.risk_level / self.atr_value), 1)
@@ -217,38 +213,26 @@ class OscillatorDriveHNTest(CtaTemplate):
                 self.intra_trade_low = bar.low_price
 
                 if self.ultosc > self.buy_dis:
-                    if not self.svt_orderids and not self.lvt_orderids:
+                    if not self.cta_engine.strategy_orderid_map[self.strategy_name]:
                         self.buy_svt_orderids = self.buy(self.boll_up, self.trading_size, True)
-                        self.svt_orderids.extend(self.buy_svt_orderids)
-                        self.write_log(f"on_xmin_bar开多仓，停止单号：{self.buy_svt_orderids}，委托手数：{self.trading_size}")
+                        # self.svt_orderids.extend(self.buy_svt_orderids)
+                        self.write_log(f"on_xmin_bar buy_svt:{self.buy_svt_orderids} volume:{self.trading_size}")
                     
                     else:
-                        if self.svt_orderids:
-                            for vt_orderid in self.svt_orderids:
-                                self.cancel_order(vt_orderid)
-                                self.write_log(f"on_xmin_bar满足开多仓条件，撤销上个周期活动停止单，停止单号{vt_orderid}")
-
-                        if self.lvt_orderids:
-                            for vt_orderid in self.lvt_orderids:
-                                self.cancel_order(vt_orderid)
-                                self.write_log(f"on_xmin_bar满足开多仓条件，撤销上个周期活动限价单，限价单号{vt_orderid}")
+                        for vt_orderid in self.cta_engine.strategy_orderid_map[self.strategy_name]:
+                            self.cancel_order(vt_orderid)
+                            self.write_log(f"on_xmin_bar满足开多仓条件，撤销上个周期活动委托{vt_orderid}")
 
                 elif self.ultosc < self.short_dis:
-                    if not self.svt_orderids and not self.lvt_orderids:
+                    if not self.cta_engine.strategy_orderid_map[self.strategy_name]:
                         self.short_svt_orderids = self.short(self.boll_down, self.trading_size, True)
-                        self.svt_orderids.extend(self.short_svt_orderids)
-                        self.write_log(f"on_xmin_bar开多仓，停止单号：{self.buy_svt_orderids}，委托手数：{self.trading_size}")
+                        # self.svt_orderids.extend(self.short_svt_orderids)
+                        self.write_log(f"on_xmin_bar short_svt:{self.buy_svt_orderids} volume:{self.trading_size}")
                     
                     else:
-                        if self.svt_orderids:
-                            for vt_orderid in self.svt_orderids:
-                                self.cancel_order(vt_orderid)
-                                self.write_log(f"on_xmin_bar满足开空仓条件，撤销上个周期活动停止单，停止单号{vt_orderid}")
-
-                        if self.lvt_orderids:
-                            for vt_orderid in self.lvt_orderids:
-                                self.cancel_order(vt_orderid)
-                                self.write_log(f"on_xmin_bar满足开空仓条件，撤销上个周期活动限价单，限价单号{vt_orderid}")
+                        for vt_orderid in self.cta_engine.strategy_orderid_map[self.strategy_name]:
+                            self.cancel_order(vt_orderid)
+                            self.write_log(f"on_xmin_bar满足开空仓条件，撤销上个周期停止单 stop_order:{vt_orderid}")
 
             elif self.pos > 0:
 
@@ -257,20 +241,15 @@ class OscillatorDriveHNTest(CtaTemplate):
 
                 self.long_stop = self.intra_trade_high - self.atr_value * self.sl_multiplier
                 
-                if not self.sell_svt_orderids and not self.sell_lvt_orderids:
+                if not self.cta_engine.strategy_orderid_map[self.strategy_name]:
                     self.sell_svt_orderids = self.sell(self.long_stop, abs(self.pos), True)
-                    self.write_log(f"on_xmin_bar平多仓，停止单号：{self.sell_svt_orderids}，委托手数：{self.trading_size}")
+                    self.write_log(f"on_xmin_bar sell_svt:{self.sell_svt_orderids} volume:{self.trading_size}")
                 
                 else:
                     if self.sell_svt_orderids:
                         for vt_orderid in self.sell_svt_orderids:
                             self.cancel_order(vt_orderid)
-                            self.write_log(f"on_xmin_bar满足平多仓条件，撤销上个周期活动停止单，停止单号{vt_orderid}")
-
-                    if self.sell_lvt_orderids:
-                        for vt_orderid in self.sell_lvt_orderids:
-                            self.cancel_order(vt_orderid)
-                            self.write_log(f"on_xmin_bar满足平多仓条件，撤销上个周期活动限价单，限价单号{vt_orderid}")
+                            self.write_log(f"on_xmin_bar满足平多仓条件，撤销上个周期停止单 stop_order:{vt_orderid}")
 
             else:
                 self.intra_trade_high = bar.high_price
@@ -280,95 +259,94 @@ class OscillatorDriveHNTest(CtaTemplate):
                 
                 if not self.cover_svt_orderids and not self.cover_lvt_orderids:
                     self.cover_svt_orderids = self.cover(self.short_stop, abs(self.pos), True)
-                    self.write_log(f"on_xmin_bar平空仓，停止单号：{self.cover_svt_orderids}，委托手数：{self.trading_size}")
+                    self.write_log(f"on_xmin_bar cover_svt:{self.cover_svt_orderids} volume:{self.trading_size}")
                 
                 else:
                     if self.cover_svt_orderids:
                         for vt_orderid in self.cover_svt_orderids:
                             self.cancel_order(vt_orderid)
-                            self.write_log(f"on_xmin_bar满足平空仓条件，撤销上个周期活动停止单，停止单号{vt_orderid}")
+                            self.write_log(f"on_xmin_bar满足平空仓条件，撤销上个周期停止单 stop_order:{vt_orderid}")
 
                     if self.cover_lvt_orderids:
                         for vt_orderid in self.cover_lvt_orderids:
                             self.cancel_order(vt_orderid)
-                            self.write_log(f"on_xmin_bar满足平空仓条件，撤销上个周期活动限价单，限价单号{vt_orderid}")
+                            self.write_log(f"on_xmin_bar满足平空仓条件，撤销上个周期限价单 order:{vt_orderid}")
 
         self.put_event()
 
     def on_stop_order(self, stop_order: StopOrder):
         """"""
 
-        self.write_log(f"停止单状态回报:{stop_order.stop_orderid} {stop_order.status} {stop_order.offset} {stop_order.direction}")
+        self.write_log(f"on_stop_order {stop_order.stop_orderid} {stop_order.status} {stop_order.offset} {stop_order.direction}")
 
         if stop_order.status == StopOrderStatus.WAITING:
             return
+        
+        buf_dict = {
+                    "buy_svt_orderids": self.buy_svt_orderids,
+                    "short_svt_orderids": self.short_svt_orderids,
+                    "sell_svt_orderids": self.sell_svt_orderids,
+                    "cover_svt_orderids": self.cover_svt_orderids
+                    }
 
-        for buf_orderids in [
-            self.buy_svt_orderids,
-            self.sell_svt_orderids,
-            self.short_svt_orderids,
-            self.cover_svt_orderids
-        ]:
+        def getDictKey(myDict, value):
+            return [k for k, v in myDict.items() if v == value]
+
+        for buf_orderids in list(buf_dict.values()):
             if stop_order.stop_orderid in buf_orderids:
+                buf_orderids_name = getDictKey(buf_dict, buf_orderids)
                 buf_orderids.remove(stop_order.stop_orderid)
-                print(f"on_stop_order从停止单委托缓存中移除{stop_order.stop_orderid}")
+                print(f"on_stop_order {buf_orderids_name[0]}移除{stop_order.stop_orderid}")
 
         if stop_order.stop_orderid in self.svt_orderids:
             self.svt_orderids.remove(stop_order.stop_orderid)
-            print(f"on_stop_order从svt_orderids中移除{stop_order.stop_orderid}")
+            print(f"on_stop_order svt_orderids移除{stop_order.stop_orderid}")
 
-        self.current_time = datetime.now().time()
+        if stop_order.status == StopOrderStatus.TRIGGERED:
+            if stop_order.offset == Offset.OPEN and stop_order.direction == Direction.LONG:
+                self.buy_lvt_orderids = stop_order.vt_orderids
+                self.lvt_orderids.extend(self.buy_lvt_orderids)
+                self.write_log(f"开多仓停止单{stop_order.stop_orderid}转化为限价单{stop_order.vt_orderids}")
 
-        if (
-            (self.current_time >= self.day_start and self.current_time < self.day_end) or
-            (self.current_time >= self.night_start and self.current_time <= self.night_end)
-        ):
+            elif stop_order.offset == Offset.OPEN and stop_order.direction == Direction.SHORT:
+                self.short_lvt_orderids = stop_order.vt_orderids
+                self.lvt_orderids.extend(self.short_lvt_orderids)
+                self.write_log(f"开空仓停止单{stop_order.stop_orderid}转化为限价单{stop_order.vt_orderids}")
 
-            if stop_order.status == StopOrderStatus.TRIGGERED:
-                if stop_order.offset == Offset.OPEN and stop_order.direction == Direction.LONG:
-                    self.buy_lvt_orderids = stop_order.vt_orderids
-                    self.lvt_orderids.extend(self.buy_lvt_orderids)
-                    self.write_log(f"开多仓停止单{stop_order.stop_orderid}转化为限价单{stop_order.vt_orderids}")
+            elif stop_order.offset == Offset.CLOSE and stop_order.direction == Direction.SHORT:
+                self.sell_lvt_orderids = stop_order.vt_orderids
+                self.lvt_orderids.extend(self.sell_lvt_orderids)
+                self.write_log(f"平多仓停止单{stop_order.stop_orderid}转化为限价单{stop_order.vt_orderids}")
 
-                elif stop_order.offset == Offset.OPEN and stop_order.direction == Direction.SHORT:
-                    self.short_lvt_orderids = stop_order.vt_orderids
-                    self.lvt_orderids.extend(self.short_lvt_orderids)
-                    self.write_log(f"开空仓停止单{stop_order.stop_orderid}转化为限价单{stop_order.vt_orderids}")
+            elif stop_order.offset == Offset.CLOSE and stop_order.direction == Direction.LONG:
+                self.cover_lvt_orderids = stop_order.vt_orderids
+                self.lvt_orderids.extend(self.cover_lvt_orderids)
+                self.write_log(f"平空仓停止单{stop_order.stop_orderid}转化为限价单{stop_order.vt_orderids}")
 
-                elif stop_order.offset == Offset.CLOSE and stop_order.direction == Direction.SHORT:
-                    self.sell_lvt_orderids = stop_order.vt_orderids
-                    self.lvt_orderids.extend(self.sell_lvt_orderids)
-                    self.write_log(f"平多仓停止单{stop_order.stop_orderid}转化为限价单{stop_order.vt_orderids}")
+        if stop_order.status == StopOrderStatus.CANCELLED:
+            if self.pos == 0:
+                if self.ultosc > self.buy_dis:
+                    if not self.svt_orderids and not self.lvt_orderids:
+                        self.buy_svt_orderids = self.buy(self.boll_up, self.trading_size, True)
+                        self.svt_orderids.extend(self.buy_svt_orderids)
+                        self.write_log(f"on_stop_order开多仓，停止单号：{self.buy_svt_orderids}，委托手数：{self.trading_size}")
+                        
 
-                elif stop_order.offset == Offset.CLOSE and stop_order.direction == Direction.LONG:
-                    self.cover_lvt_orderids = stop_order.vt_orderids
-                    self.lvt_orderids.extend(self.cover_lvt_orderids)
-                    self.write_log(f"平空仓停止单{stop_order.stop_orderid}转化为限价单{stop_order.vt_orderids}")
+                elif self.ultosc < self.short_dis:
+                    if not self.svt_orderids and not self.lvt_orderids:
+                        self.short_svt_orderids = self.short(self.boll_down, self.trading_size, True)
+                        self.svt_orderids.extend(self.short_svt_orderids)
+                        self.write_log(f"on_stop_order开空仓，停止单号：{self.short_svt_orderids}，委托手数：{self.trading_size}")
 
-            if stop_order.status == StopOrderStatus.CANCELLED:
-                if self.pos == 0:
-                    if self.ultosc > self.buy_dis:
-                        if not self.buy_svt_orderids and not self.buy_lvt_orderids and not self.svt_orderids and not self.lvt_orderids:
-                            self.buy_svt_orderids = self.buy(self.boll_up, self.trading_size, True)
-                            self.svt_orderids.extend(self.buy_svt_orderids)
-                            self.write_log(f"on_stop_order开多仓，停止单号：{self.buy_svt_orderids}，委托手数：{self.trading_size}")
-                            
+            elif self.pos > 0:  
+                if not self.sell_svt_orderids and not self.sell_lvt_orderids:
+                    self.sell_svt_orderids = self.sell(self.long_stop, abs(self.pos), True)
+                    self.write_log(f"on_stop_order平多仓，停止单号：{self.sell_svt_orderids}，委托手数：{abs(self.pos)}")
 
-                    elif self.ultosc < self.short_dis:
-                        if not self.short_svt_orderids and not self.short_lvt_orderids and not self.svt_orderids and not self.lvt_orderids:
-                            self.short_svt_orderids = self.short(self.boll_down, self.trading_size, True)
-                            self.svt_orderids.extend(self.short_svt_orderids)
-                            self.write_log(f"on_stop_order开空仓，停止单号：{self.short_svt_orderids}，委托手数：{self.trading_size}")
-
-                elif self.pos > 0:  
-                    if not self.sell_svt_orderids and not self.sell_lvt_orderids:
-                        self.sell_svt_orderids = self.sell(self.long_stop, abs(self.pos), True)
-                        self.write_log(f"on_stop_order平多仓，停止单号：{self.sell_svt_orderids}，委托手数：{abs(self.pos)}")
-
-                else:     
-                    if not self.cover_svt_orderids and not self.cover_lvt_orderids:
-                        self.cover_svt_orderids = self.cover(self.short_stop, abs(self.pos), True)
-                        self.write_log(f"on_stop_order平空仓，停止单号：{self.cover_svt_orderids}，委托手数：{abs(self.pos)}")
+            else:     
+                if not self.cover_svt_orderids and not self.cover_lvt_orderids:
+                    self.cover_svt_orderids = self.cover(self.short_stop, abs(self.pos), True)
+                    self.write_log(f"on_stop_order平空仓，停止单号：{self.cover_svt_orderids}，委托手数：{abs(self.pos)}")
 
         self.put_event()
     
