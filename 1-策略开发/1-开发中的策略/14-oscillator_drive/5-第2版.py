@@ -133,14 +133,13 @@ class OscillatorDriveHNTest(CtaTemplate):
         self.current_time = datetime.now().time()
 
         # 交易日下午3点收盘前开始清仓
-        if self.current_time >= self.day_end and self.current_time <= self.liq_time:
+        if (self.day_end <= self.current_time <= self.liq_time):
             
             self.write_log(f"清仓时段，当前时间:{self.current_time}")
 
             if not self.cta_engine.strategy_orderid_map[self.strategy_name]:
 
-                self.write_log("清仓时段，无交易时段活动委托")
-                print(f"self.pos:{self.pos}")
+                self.write_log("清仓时段，无交易时段活动委托 self.pos:{self.pos}" )
 
                 if self.pos > 0:
                     self.sell(bar.close_price - 5, abs(self.pos))
@@ -175,64 +174,46 @@ class OscillatorDriveHNTest(CtaTemplate):
 
             print(f"on_xmin_bar self.pos:{self.pos} {bar.datetime}")
 
-            if self.pos == 0:
-                self.trading_size = max(int(self.risk_level / self.atr_value), 1)
-                if self.trading_size >= 2:
-                    self.trading_size = 2
+            if not self.cta_engine.strategy_orderid_map[self.strategy_name]:
+                if self.pos == 0:
+                    self.trading_size = max(int(self.risk_level / self.atr_value), 1)
+                    if self.trading_size >= 2:
+                        self.trading_size = 2
 
-                self.intra_trade_high = bar.high_price
-                self.intra_trade_low = bar.low_price
+                    self.intra_trade_high = bar.high_price
+                    self.intra_trade_low = bar.low_price
 
-                if self.ultosc > self.buy_dis:
-                    if not self.cta_engine.strategy_orderid_map[self.strategy_name]:
+                    if self.ultosc > self.buy_dis:
                         self.buy(self.boll_up, self.trading_size, True)
                         self.write_log(f"on_xmin_bar buy_svt:{self.buy_svt_orderids} volume:{self.trading_size}")
-                    
-                    else:
-                        for vt_orderid in self.cta_engine.strategy_orderid_map[self.strategy_name]:
-                            self.cancel_order(vt_orderid)
-                            self.write_log(f"on_xmin_bar满足开多仓条件，撤销上个周期活动委托{vt_orderid}")
 
-                elif self.ultosc < self.short_dis:
-                    if not self.cta_engine.strategy_orderid_map[self.strategy_name]:
+                    elif self.ultosc < self.short_dis:
                         self.short(self.boll_down, self.trading_size, True)
                         self.write_log(f"on_xmin_bar short_svt:{self.buy_svt_orderids} volume:{self.trading_size}")
-                    
-                    else:
-                        for vt_orderid in self.cta_engine.strategy_orderid_map[self.strategy_name]:
-                            self.cancel_order(vt_orderid)
-                            self.write_log(f"on_xmin_bar满足开空仓条件，撤销上个周期停止单 stop_order:{vt_orderid}")
 
-            elif self.pos > 0:
+                elif self.pos > 0:
 
-                self.intra_trade_high = max(self.intra_trade_high, bar.high_price)
-                self.intra_trade_low = bar.low_price
+                    self.intra_trade_high = max(self.intra_trade_high, bar.high_price)
+                    self.intra_trade_low = bar.low_price
 
-                self.long_stop = self.intra_trade_high - self.atr_value * self.sl_multiplier
-                
-                if not self.cta_engine.strategy_orderid_map[self.strategy_name]:
+                    self.long_stop = self.intra_trade_high - self.atr_value * self.sl_multiplier
+
                     self.sell(self.long_stop, abs(self.pos), True)
                     self.write_log(f"on_xmin_bar sell_svt:{self.sell_svt_orderids} volume:{self.trading_size}")
-                
+
                 else:
-                    for vt_orderid in self.cta_engine.strategy_orderid_map[self.strategy_name]:
-                        self.cancel_order(vt_orderid)
-                        self.write_log(f"on_xmin_bar满足平多仓条件，撤销上个周期停止单 stop_order:{vt_orderid}")
+                    self.intra_trade_high = bar.high_price
+                    self.intra_trade_low = min(self.intra_trade_low, bar.low_price)
 
-            else:
-                self.intra_trade_high = bar.high_price
-                self.intra_trade_low = min(self.intra_trade_low, bar.low_price)
+                    self.short_stop = self.intra_trade_low + self.atr_value * self.sl_multiplier
 
-                self.short_stop = self.intra_trade_low + self.atr_value * self.sl_multiplier
-                
-                if not self.cta_engine.strategy_orderid_map[self.strategy_name]:
                     self.cover(self.short_stop, abs(self.pos), True)
                     self.write_log(f"on_xmin_bar cover_svt:{self.cover_svt_orderids} volume:{self.trading_size}")
-                
-                else:
-                    for vt_orderid in self.cta_engine.strategy_orderid_map[self.strategy_name]:
-                        self.cancel_order(vt_orderid)
-                        self.write_log(f"on_xmin_bar满足平空仓条件，撤销上个周期停止单 stop_order:{vt_orderid}")
+
+            else:
+                for vt_orderid in self.cta_engine.strategy_orderid_map[self.strategy_name]:
+                    self.cancel_order(vt_orderid)
+
 
         self.put_event()
 
@@ -240,32 +221,30 @@ class OscillatorDriveHNTest(CtaTemplate):
         """"""
 
         self.write_log(f"on_stop_order {stop_order.stop_orderid} {stop_order.status} {stop_order.offset} {stop_order.direction}")
+
+        if stop_order.status == StopOrderStatus.WAITING:
+            return
         
         if ((self.day_start <= self.current_time < self.day_end) or (self.night_start <= self.current_time <= self.night_end)):
-            
-            if stop_order.status == StopOrderStatus.WAITING:
-                return
 
             if stop_order.status == StopOrderStatus.CANCELLED:
-                if self.pos == 0:
-                    if self.ultosc > self.buy_dis:
-                        if not self.cta_engine.strategy_orderid_map[self.strategy_name]:
+                
+                if not self.cta_engine.strategy_orderid_map[self.strategy_name]:
+
+                    if self.pos == 0:
+                        if self.ultosc > self.buy_dis:
                             self.buy(self.boll_up, self.trading_size, True)
                             self.write_log(f"on_stop_order开多仓，停止单号：{self.buy_svt_orderids}，委托手数：{self.trading_size}")
-                            
 
-                    elif self.ultosc < self.short_dis:
-                        if not self.cta_engine.strategy_orderid_map[self.strategy_name]:
+                        elif self.ultosc < self.short_dis:
                             self.short(self.boll_down, self.trading_size, True)
                             self.write_log(f"on_stop_order开空仓，停止单号：{self.short_svt_orderids}，委托手数：{self.trading_size}")
 
-                elif self.pos > 0:  
-                    if not self.cta_engine.strategy_orderid_map[self.strategy_name]:
+                    elif self.pos > 0:  
                         self.sell(self.long_stop, abs(self.pos), True)
                         self.write_log(f"on_stop_order平多仓，停止单号：{self.sell_svt_orderids}，委托手数：{abs(self.pos)}")
 
-                else:     
-                    if not self.cta_engine.strategy_orderid_map[self.strategy_name]:
+                    else:    
                         self.cover(self.short_stop, abs(self.pos), True)
                         self.write_log(f"on_stop_order平空仓，停止单号：{self.cover_svt_orderids}，委托手数：{abs(self.pos)}")
 
@@ -287,28 +266,27 @@ class OscillatorDriveHNTest(CtaTemplate):
         if ((self.day_start <= self.current_time < self.day_end) or (self.night_start <= self.current_time <= self.night_end)):
 
             if order.status in [Status.CANCELLED, Status.REJECTED]:
-                if self.pos == 0:
-                    if self.ultosc > self.buy_dis:
-                        if not self.cta_engine.strategy_orderid_map[self.strategy_name]:
+                
+                if not self.cta_engine.strategy_orderid_map[self.strategy_name]:
+
+                    if self.pos == 0:
+                        if self.ultosc > self.buy_dis:   
                             self.buy(self.boll_up, self.trading_size, True)
                             self.write_log(f"on_order开多仓，停止单号：{self.buy_svt_orderids}，委托手数：{self.trading_size}")
 
-                    elif self.ultosc < self.short_dis:
-                        if not self.cta_engine.strategy_orderid_map[self.strategy_name]:
+                        elif self.ultosc < self.short_dis:
                             self.short(self.boll_down, self.trading_size, True)
                             self.write_log(f"on_order开空仓，停止单号：{self.short_svt_orderids}，委托手数：{self.trading_size}")
 
-                elif self.pos > 0:
-                    if not self.cta_engine.strategy_orderid_map[self.strategy_name]:
+                    elif self.pos > 0:
                         self.sell(self.long_stop, abs(self.pos), True)
                         self.write_log(f"on_order平多仓，停止单号：{self.sell_svt_orderids}，委托手数：{abs(self.pos)}")
 
-                else:
-                    if not self.cta_engine.strategy_orderid_map[self.strategy_name]:
+                    else:
                         self.cover(self.short_stop, abs(self.pos), True)
                         self.write_log(f"on_order平空仓，停止单号：{self.cover_svt_orderids}，委托手数：{abs(self.pos)}")
 
-        elif self.current_time >= self.day_end and self.current_time <= self.liq_time:
+        elif (self.day_end <= self.current_time <= self.liq_time):
 
             if order.status in [Status.CANCELLED, Status.REJECTED]:
                 if not self.cta_engine.strategy_orderid_map[self.strategy_name]:
