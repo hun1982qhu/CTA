@@ -132,27 +132,28 @@ class OscillatorDriveHNTest(CtaTemplate):
 
         self.current_time = datetime.now().time()
 
-        # 交易日下午3点收盘前开始清仓
         if (self.day_end <= self.current_time <= self.liq_time):
             
-            self.write_log(f"清仓时段，当前时间:{self.current_time}")
+            self.write_log(f"清仓时段 {self.current_time}")
 
             if not self.cta_engine.strategy_orderid_map[self.strategy_name]:
 
-                self.write_log("清仓时段，无交易时段活动委托 self.pos:{self.pos}" )
+                self.write_log(f"清仓时段 无活动委托 self.pos:{self.pos}")
+                pos = self.pos
 
                 if self.pos > 0:
                     self.sell(bar.close_price - 5, abs(self.pos))
-                    self.write_log("清仓时段，发出平多仓委托")
+                    self.write_log(f"清仓时段 sell volume:{pos} {self.current_time}")
 
                 elif self.pos < 0:
                     self.cover(bar.close_price + 5, abs(self.pos))
-                    self.write_log("清仓时段，发出平空仓委托")
+                    self.write_log(f"清仓时段 cover volume:{pos} {self.current_time}")
 
             else:
                 for vt_orderid in self.cta_engine.strategy_orderid_map[self.strategy_name]:
+                    orderid = vt_orderid
                     self.cancel_order(vt_orderid)
-                    self.write_log("清仓时段，撤销交易时段活动委托")
+                    self.write_log(f"清仓时段 cancel {orderid}")
 
     def on_xmin_bar(self, bar: BarData):
         """"""
@@ -168,18 +169,19 @@ class OscillatorDriveHNTest(CtaTemplate):
         self.short_dis = 50 - self.dis_open
         self.atr_value = am.atr(self.atr_window)
 
+        self.trading_size = max(int(self.risk_level / self.atr_value), 1)
+        if self.trading_size >= 2:
+            self.trading_size = 2
+
         self.current_time = datetime.now().time()
 
         if ((self.day_start <= self.current_time < self.day_end) or (self.night_start <= self.current_time <= self.night_end)):
 
-            print(f"on_xmin_bar self.pos:{self.pos} {bar.datetime}")
+            self.write_log(f"on_xmin_bar self.pos:{self.pos} {self.current_time}")
 
             if not self.cta_engine.strategy_orderid_map[self.strategy_name]:
-                if self.pos == 0:
-                    self.trading_size = max(int(self.risk_level / self.atr_value), 1)
-                    if self.trading_size >= 2:
-                        self.trading_size = 2
 
+                if self.pos == 0:
                     self.intra_trade_high = bar.high_price
                     self.intra_trade_low = bar.low_price
 
@@ -213,6 +215,7 @@ class OscillatorDriveHNTest(CtaTemplate):
             else:
                 for vt_orderid in self.cta_engine.strategy_orderid_map[self.strategy_name]:
                     self.cancel_order(vt_orderid)
+                    self.write_log(f"on_xmin_bar cancel {orderid}")
 
 
         self.put_event()
