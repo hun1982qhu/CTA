@@ -1,24 +1,16 @@
-buy_svt_orderids = [1]
-short_svt_orderids = [2]
-sell_svt_orderids = [3]
-cover_svt_orderids = [4]
+from collections import defaultdict
 
-buf_dict = {
-            "buy_svt_orderids": buy_svt_orderids,
-            "short_svt_orderids": short_svt_orderids,
-            "sell_svt_orderids": sell_svt_orderids,
-            "cover_svt_orderids": cover_svt_orderids
-            }
+strategy_orderid_map = defaultdict(set)
 
-print(buf_dict.items())
+strategy_orderid_map["a"] = set(["b"])
 
-def getDictKey(myDict, value):
-    return [k for k, v in myDict.items() if v == value]
+vt_orderids = strategy_orderid_map["a"]
+vt_orderids.add("c")
 
-a = 1
+print(vt_orderids)
+print(strategy_orderid_map["a"])
 
-for buf_orderids in list(buf_dict.values()):
-    if a in buf_orderids:
-        b = getDictKey(buf_dict, buf_orderids)
-        buf_orderids.remove(a)
-        print(f"{b[0]}")
+vt_orderids.remove("c")
+
+print(vt_orderids)
+print(strategy_orderid_map["a"])
