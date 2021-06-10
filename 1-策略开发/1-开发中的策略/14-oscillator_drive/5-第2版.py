@@ -134,26 +134,26 @@ class OscillatorDriveHNTest(CtaTemplate):
 
         if (self.day_end <= self.current_time <= self.liq_time):
             
-            self.write_log(f"清仓时段 {self.current_time}")
+            self.write_log(f"clearance time {self.current_time}")
 
             if not self.cta_engine.strategy_orderid_map[self.strategy_name]:
 
-                self.write_log(f"清仓时段 无此前活动委托 self.pos:{self.pos}")
                 pos = self.pos
+                self.write_log(f"clearance time no previous commission self.pos:{pos}")
 
                 if self.pos > 0:
                     self.sell(bar.close_price - 5, abs(self.pos))
-                    self.write_log(f"清仓时段 on_bar sell volume:{pos} {self.current_time}")
+                    self.write_log(f"clearance time on_bar sell volume:{pos} {self.current_time}")
 
                 elif self.pos < 0:
                     self.cover(bar.close_price + 5, abs(self.pos))
-                    self.write_log(f"清仓时段 on_bar cover volume:{pos} {self.current_time}")
+                    self.write_log(f"clearance time on_bar cover volume:{pos} {self.current_time}")
 
             else:
                 for vt_orderid in self.cta_engine.strategy_orderid_map[self.strategy_name]:
                     orderid = vt_orderid
                     self.cancel_order(vt_orderid)
-                    self.write_log(f"清仓时段 cancel {orderid}")
+                    self.write_log(f"clearance time cancel {orderid}")
 
     def on_xmin_bar(self, bar: BarData):
         """"""
@@ -173,9 +173,9 @@ class OscillatorDriveHNTest(CtaTemplate):
 
         if ((self.day_start <= self.current_time < self.day_end) or (self.night_start <= self.current_time <= self.night_end)):
 
-            self.write_log(f"on_xmin_bar self.pos:{self.pos} {self.current_time}")
-
             pos = self.pos
+            
+            self.write_log(f"on_xmin_bar self.pos:{pos} {self.current_time}")
 
             if not self.cta_engine.strategy_orderid_map[self.strategy_name]:
 
@@ -197,7 +197,6 @@ class OscillatorDriveHNTest(CtaTemplate):
                         self.write_log(f"on_xmin_bar short_svt:{self.cta_engine.strategy_orderid_map[self.strategy_name]} volume:{self.trading_size}")
 
                 elif self.pos > 0:
-
                     self.intra_trade_high = max(self.intra_trade_high, bar.high_price)
                     self.intra_trade_low = bar.low_price
 
@@ -217,9 +216,9 @@ class OscillatorDriveHNTest(CtaTemplate):
 
             else:
                 for vt_orderid in self.cta_engine.strategy_orderid_map[self.strategy_name]:
+                    orderid = vt_orderid
                     self.cancel_order(vt_orderid)
                     self.write_log(f"on_xmin_bar cancel {orderid}")
-
 
         self.put_event()
 
@@ -299,14 +298,17 @@ class OscillatorDriveHNTest(CtaTemplate):
         elif (self.day_end <= self.current_time <= self.liq_time):
 
             if order.status in [Status.CANCELLED, Status.REJECTED]:
+
+                pos = self.pos
+
                 if not self.cta_engine.strategy_orderid_map[self.strategy_name]:
                     if self.pos > 0:
                         self.sell(bar.close_price - 5, abs(self.pos))
-                        self.write_log(f"清仓时段 on_order sell volume:{pos} {self.current_time}")
+                        self.write_log(f"clearance time on_order sell volume:{pos} {self.current_time}")
 
                     elif self.pos < 0:
                         self.cover(bar.close_price + 5, abs(self.pos))
-                        self.write_log(f"清仓时段 on_order cover volume:{pos} {self.current_time}")
+                        self.write_log(f"clearance time on_order cover volume:{pos} {self.current_time}")
 
         self.put_event()
 
@@ -327,7 +329,7 @@ class OscillatorDriveHNTest(CtaTemplate):
         self.trade_record_file_writer.writerow(trade_record_dict)
         self.trade_record_file.flush()  # 强制同步
         
-        self.write_log("成交记录已保存")
+        self.write_log("Trading Record Is Saved")
 
         self.put_event()
 
