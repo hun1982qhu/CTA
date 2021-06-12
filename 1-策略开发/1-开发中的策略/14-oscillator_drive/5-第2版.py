@@ -215,10 +215,11 @@ class OscillatorDriveHNTest(CtaTemplate):
                     self.write_log(f"on_xmin_bar cover_svt:{self.cta_engine.strategy_orderid_map[self.strategy_name]} volume:{pos}")
 
             else:
-                for vt_orderid in self.cta_engine.strategy_orderid_map[self.strategy_name]:
-                    orderid = vt_orderid
-                    self.cancel_order(vt_orderid)
-                    self.write_log(f"on_xmin_bar cancel {orderid}")
+                if self.cta_engine.stop_orders:
+                    for vt_orderid in list():
+                        orderid = vt_orderid
+                        self.cancel_order(vt_orderid)
+                        self.write_log(f"on_xmin_bar cancel {orderid}")
 
         self.put_event()
 
