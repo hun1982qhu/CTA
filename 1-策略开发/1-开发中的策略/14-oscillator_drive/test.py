@@ -1,16 +1,9 @@
 from collections import defaultdict
 
-strategy_orderid_map = defaultdict(set)
+l = [1, 2, 3]
 
-strategy_orderid_map["a"] = set(["b"])
+a = l
 
-vt_orderids = strategy_orderid_map["a"]
-vt_orderids.add("c")
+l =[1, 2]
 
-print(vt_orderids)
-print(strategy_orderid_map["a"])
-
-vt_orderids.remove("c")
-
-print(vt_orderids)
-print(strategy_orderid_map["a"])
+print(a)

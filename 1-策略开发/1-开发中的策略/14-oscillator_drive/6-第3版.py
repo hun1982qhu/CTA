@@ -15,6 +15,9 @@ from vnpy.app.cta_strategy.base import StopOrderStatus, BacktestingMode, EngineT
 from vnpy.app.cta_strategy.backtesting import BacktestingEngine, OptimizationSetting
 from vnpy.trader.object import BarData, TickData
 from vnpy.trader.constant import Interval, Offset, Direction, Exchange, Status
+
+from vnpy.app.pnl_tracker.pnl_tool import PnlTracker
+
 import numpy as np
 import pandas as pd
 from datetime import time as time1
@@ -94,6 +97,8 @@ class OscillatorDriveHNTest(CtaTemplate):
         self.liq_time = time1(15, 0)
         self.night_start = time1(20, 45)
         self.night_end = time1(23, 0)
+
+        self.tracker = PnlTracker(10, 0)
 
         trade_record_fields = [
             "vt_symbol",
@@ -236,7 +241,7 @@ class OscillatorDriveHNTest(CtaTemplate):
                             self.cancel_order(vt_orderid)
                             self.write_log(f"on_xmin_bar cancel {orderid}")
 
-        self.sync_data()  # 防止出现异常宕机数据丢失
+        self.sync_data()  # 防止出现宕机数据丢失
         self.put_event()
 
     def on_stop_order(self, stop_order: StopOrder):
