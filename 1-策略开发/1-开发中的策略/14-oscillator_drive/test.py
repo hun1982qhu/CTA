@@ -1,9 +1,15 @@
-from collections import defaultdict
+import copy
 
-l = [1, 2, 3]
+a = set([1, 2])
+b = list(a).copy()
 
-a = l
+print(b)
 
-l =[1, 2]
+c = [1, 2, [3, 4]]
+d = copy.copy(c)
+e = copy.deepcopy(c)
 
-print(a)
+d[2][0] = 5
+print(c)
+print(d)
+print(e)

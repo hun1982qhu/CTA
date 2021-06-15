@@ -1,5 +1,6 @@
 #%%
 import csv
+import copy
 
 from logging import currentframe
 from typing import Any, Callable
@@ -15,8 +16,6 @@ from vnpy.app.cta_strategy.base import StopOrderStatus, BacktestingMode, EngineT
 from vnpy.app.cta_strategy.backtesting import BacktestingEngine, OptimizationSetting
 from vnpy.trader.object import BarData, TickData
 from vnpy.trader.constant import Interval, Offset, Direction, Exchange, Status
-
-from vnpy.app.pnl_tracker.pnl_tool import PnlTracker
 
 import numpy as np
 import pandas as pd
@@ -98,8 +97,6 @@ class OscillatorDriveHNTest(CtaTemplate):
         self.night_start = time1(20, 45)
         self.night_end = time1(23, 0)
 
-        self.tracker = PnlTracker(10, 0)
-
         trade_record_fields = [
             "vt_symbol",
             "orderid",
@@ -140,7 +137,7 @@ class OscillatorDriveHNTest(CtaTemplate):
         self.current_time = datetime.now().time()
 
         if (self.day_end <= self.current_time <= self.liq_time):
-            
+
             self.write_log(f"clearance time {self.current_time}")
 
             if not self.cta_engine.strategy_orderid_map[self.strategy_name]:
@@ -157,7 +154,7 @@ class OscillatorDriveHNTest(CtaTemplate):
                     self.write_log(f"clearance time on_bar cover volume:{pos} {self.current_time}")
 
             else:
-                limit_orders_buf = self.cta_engine.strategy_orderid_map[self.strategy_name]
+                limit_orders_buf = copy.deepcopy(self.cta_engine.strategy_orderid_map[self.strategy_name])
 
                 if limit_orders_buf:
                     for vt_orderid in limit_orders_buf:
@@ -185,17 +182,17 @@ class OscillatorDriveHNTest(CtaTemplate):
         if ((self.day_start <= self.current_time < self.day_end) or (self.night_start <= self.current_time <= self.night_end)):
 
             pos = self.pos
-            
+
             self.write_log(f"on_xmin_bar self.pos:{pos} {self.current_time}")
 
             if not self.cta_engine.strategy_orderid_map[self.strategy_name]:
 
                 if self.pos == 0:
-                    
+
                     self.trading_size = max(int(self.risk_level / self.atr_value), 1)
                     if self.trading_size >= 2:
                         self.trading_size = 2
-                    
+
                     self.intra_trade_high = bar.high_price
                     self.intra_trade_low = bar.low_price
 
@@ -233,7 +230,7 @@ class OscillatorDriveHNTest(CtaTemplate):
                             self.write_log(f"on_xmin_bar cancel {stop_order.stop_orderid}")
 
                 else:
-                    limit_orders_buf = self.cta_engine.strategy_orderid_map[self.strategy_name]
+                    limit_orders_buf = copy.deepcopy(self.cta_engine.strategy_orderid_map[self.strategy_name])
 
                     if limit_orders_buf:
                         for vt_orderid in limit_orders_buf:
@@ -251,13 +248,13 @@ class OscillatorDriveHNTest(CtaTemplate):
 
         if stop_order.status == StopOrderStatus.WAITING:
             return
-        
+
         if ((self.day_start <= self.current_time < self.day_end) or (self.night_start <= self.current_time <= self.night_end)):
 
             if stop_order.status == StopOrderStatus.CANCELLED:
 
                 pos = self.pos
-                
+
                 if not self.cta_engine.strategy_orderid_map[self.strategy_name]:
 
                     if self.pos == 0:
@@ -269,7 +266,7 @@ class OscillatorDriveHNTest(CtaTemplate):
                             self.short(self.boll_down, self.trading_size, True)
                             self.write_log(f"on_stop_order short_svt:{self.cta_engine.strategy_orderid_map[self.strategy_name]} volume:{self.trading_size}")
 
-                    elif self.pos > 0:  
+                    elif self.pos > 0: 
                         self.sell(self.long_stop, abs(self.pos), True)
                         self.write_log(f"on_stop_order sell_svt:{self.cta_engine.strategy_orderid_map[self.strategy_name]} volume:{pos}")
 
@@ -278,7 +275,7 @@ class OscillatorDriveHNTest(CtaTemplate):
                         self.write_log(f"on_stop_order cover_svt:{self.cta_engine.strategy_orderid_map[self.strategy_name]} volume:{pos}")
 
         self.put_event()
-    
+
     def on_order(self, order: OrderData):
         """"""
 
@@ -287,7 +284,7 @@ class OscillatorDriveHNTest(CtaTemplate):
         # ACTIVE_STATUSES = set([Status.SUBMITTING, Status.NOTTRADED, Status.PARTTRADED])
         if order.is_active():
             return
-        
+
         # not ACTIVE_STATUSES = set([Status.ALLTRADED, Status.CANCELLED, Status.REJECTED])
 
         self.current_time = datetime.now().time()
@@ -297,7 +294,7 @@ class OscillatorDriveHNTest(CtaTemplate):
             if order.status in [Status.CANCELLED, Status.REJECTED]:
 
                 pos = self.pos
-                
+
                 if not self.cta_engine.strategy_orderid_map[self.strategy_name]:
 
                     if self.pos == 0:
@@ -336,9 +333,9 @@ class OscillatorDriveHNTest(CtaTemplate):
 
     def on_trade(self, trade: TradeData):
         """"""
-        
+
         self.write_log(f"on_trade {trade.vt_symbol} {trade.orderid} {trade.offset} {trade.direction} {trade.price} {trade.volume} {trade.datetime}")
-        
+
         trade_record_dict = {
             "vt_symbol": trade.vt_symbol,
             "orderid": trade.orderid,
@@ -350,7 +347,7 @@ class OscillatorDriveHNTest(CtaTemplate):
         }
         self.trade_record_file_writer.writerow(trade_record_dict)
         self.trade_record_file.flush()  # 强制同步
-        
+
         self.write_log("Trading Record Is Saved")
 
         self.put_event()
@@ -365,7 +362,7 @@ class XminBarGenerator(BarGenerator):
         interval: Interval = Interval.MINUTE
     ):
         super().__init__(on_bar, window, on_window_bar, interval)
-    
+
     def update_bar(self, bar: BarData) ->None:
         """
         Update 1 minute bar into generator
@@ -406,7 +403,7 @@ class XminBarGenerator(BarGenerator):
             # x-minute bar
             # if not (bar.datetime.minute + 1) % self.window:
             #     finished = True
-            
+
             self.interval_count += 1
 
             if not self.interval_count % self.window:
