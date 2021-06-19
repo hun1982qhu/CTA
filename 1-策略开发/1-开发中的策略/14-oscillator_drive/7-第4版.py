@@ -134,10 +134,10 @@ class OscillatorDriveHNTest(CtaTemplate):
 
     def on_bar(self, bar: BarData):
         """"""
-        
+
         self.liq_price = bar.close_price
         self.on_bar_time = bar.datetime.time()
-        
+
         self.bg.update_bar(bar)
 
         if (self.clearance_time <= self.on_bar_time <= self.liq_time):
@@ -196,11 +196,11 @@ class OscillatorDriveHNTest(CtaTemplate):
                 self.intra_trade_low = bar.low_price
 
                 if self.ultosc > self.buy_dis:
-                    
+
                     if not self.cta_engine.strategy_orderid_map[self.strategy_name]:   
                         self.buy(self.boll_up, self.trading_size, True)
                         self.write_log(f"on_xmin_bar, buy_svt:{list(self.cta_engine.strategy_orderid_map[self.strategy_name])}, volume:{self.trading_size}")
-                    
+
                     else:
                         orders_buf = copy.deepcopy(self.cta_engine.strategy_orderid_map[self.strategy_name])
 
@@ -300,7 +300,7 @@ class OscillatorDriveHNTest(CtaTemplate):
                         self.write_log(f"on_stop_order, cover_svt:{self.cta_engine.strategy_orderid_map[self.strategy_name]}, volume:{pos}")
 
         elif (self.clearance_time <= self.on_bar_time <= self.liq_time):
-    
+
             if stop_order.status == StopOrderStatus.CANCELLED:
 
                 pos = copy.deepcopy(self.pos)
