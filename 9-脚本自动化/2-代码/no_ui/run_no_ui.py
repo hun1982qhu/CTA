@@ -89,12 +89,15 @@ def run_child():
 
     main_engine.write_log(f"{HNstrategy_name}已启动")
 
+    main_engine.send_email(HNstrategy_name, "trading started", SETTINGS["email.receiver"])
+
     while True:
         sleep(10)
 
         trading = check_trading_period()
         if not trading:
             print("关闭子进程")
+            main_engine.send_email(HNstrategy_name, "trading closed", SETTINGS["email.receiver"])
             main_engine.close()
             sys.exit(0)
 
