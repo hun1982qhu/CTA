@@ -90,7 +90,9 @@ def run_child():
 
     main_engine.write_log(f"{HNstrategy_name}已启动")
 
-    main_engine.send_email(HNstrategy_name, "trading started", SETTINGS["email.receiver"])
+    current_time = datetime.now().time()
+
+    main_engine.send_email("终极震荡指标策略启动", f"trading started, {current_time}", SETTINGS["email.receiver"])
 
     while True:
         sleep(10)
@@ -98,7 +100,8 @@ def run_child():
         trading = check_trading_period()
         if not trading:
             print("关闭子进程")
-            main_engine.send_email(HNstrategy_name, "trading closed", SETTINGS["email.receiver"])
+            current_time = datetime.now().time()
+            main_engine.send_email("终极震荡指标策略关闭", f"trading closed, {current_time}", SETTINGS["email.receiver"])
             main_engine.close()
             sys.exit(0)
 
