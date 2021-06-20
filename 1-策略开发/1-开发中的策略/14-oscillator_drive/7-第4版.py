@@ -385,11 +385,14 @@ class OscillatorDriveHNTest(CtaTemplate):
         trade_record_dict = {
             "vt_symbol": trade.vt_symbol,
             "orderid": trade.orderid,
+            "tradeid": trade.tradeid,
             "offset": trade.offset,
             "direction": trade.direction,
             "price": trade.price,
             "volume": trade.volume,
-            "datetime": trade.datetime
+            "datetime": trade.datetime,
+            "strategy": self.cta_engine.strategies[self.strategy_name],
+            "strategy_name": self.strategy_name
         }
         self.trade_record_file_writer.writerow(trade_record_dict)
         self.trade_record_file.flush()  # 强制同步
