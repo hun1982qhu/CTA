@@ -43,6 +43,7 @@ def check_trading_period():
     current_time = datetime.now().time()
 
     trading = False
+
     if (
         (DAY_START <= current_time <= DAY_END)
         or (current_time >= NIGHT_START)
