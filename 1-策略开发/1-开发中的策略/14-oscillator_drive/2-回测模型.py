@@ -116,6 +116,7 @@ class OscillatorDriveHNTest(CtaTemplate):
     def on_bar(self, bar: BarData):
         """"""
         self.bg.update_bar(bar)
+        print(bar.datetime)
 
     def on_xmin_bar(self, bar: BarData):
         """"""
@@ -340,71 +341,71 @@ engine.run_backtesting()
 df = engine.calculate_result()
 engine.calculate_statistics()
 # 待测试的代码
-end1 = time.time()
-print(f"单次回测运行时长: {(end1-start1)} Seconds")
+# end1 = time.time()
+# print(f"单次回测运行时长: {(end1-start1)} Seconds")
 
-# 创建一个4行、1列的带子图绘图区域，并分别给子图加上标题
-fig = make_subplots(rows=4, cols=1, subplot_titles=["Balance", "Drawdown", "Daily Pnl", "Pnl Distribution"], vertical_spacing=0.06)
+# # 创建一个4行、1列的带子图绘图区域，并分别给子图加上标题
+# fig = make_subplots(rows=4, cols=1, subplot_titles=["Balance", "Drawdown", "Daily Pnl", "Pnl Distribution"], vertical_spacing=0.06)
 
-# 第一张：账户净值子图，用折线图来绘制
-fig.add_trace(go.Line(x=df.index, y=df["balance"], name="balance"), row=1, col=1)
+# # 第一张：账户净值子图，用折线图来绘制
+# fig.add_trace(go.Line(x=df.index, y=df["balance"], name="balance"), row=1, col=1)
 
-# 第二张：最大回撤子图，用面积图来绘制
-fig.add_trace(go.Scatter(x=df.index, y=df["drawdown"], fillcolor="red", fill="tozeroy", line={"width": 0.5, "color": "red"}, name="Drawdown"), row=2, col=1)
+# # 第二张：最大回撤子图，用面积图来绘制
+# fig.add_trace(go.Scatter(x=df.index, y=df["drawdown"], fillcolor="red", fill="tozeroy", line={"width": 0.5, "color": "red"}, name="Drawdown"), row=2, col=1)
 
-# 第三张：每日盈亏子图，用柱状图来绘制
-fig.add_trace(go.Bar(y=df["net_pnl"], name="Daily Pnl"), row=3, col=1)
+# # 第三张：每日盈亏子图，用柱状图来绘制
+# fig.add_trace(go.Bar(y=df["net_pnl"], name="Daily Pnl"), row=3, col=1)
 
-# 第四张：盈亏分布子图，用直方图来绘制
-fig.add_trace(go.Histogram(x=df["net_pnl"], nbinsx=100, name="Days"), row=4, col=1)
+# # 第四张：盈亏分布子图，用直方图来绘制
+# fig.add_trace(go.Histogram(x=df["net_pnl"], nbinsx=100, name="Days"), row=4, col=1)
 
-# 把图表放大些，默认小了点
-fig.update_layout(height=1000, width=1000)
+# # 把图表放大些，默认小了点
+# fig.update_layout(height=1000, width=1000)
 
-# 将绘制完的图显示出来
-fig.show()
+# # 将绘制完的图显示出来
+# fig.show()
 
-# engine.show_chart()
-#%%
-# 创建优化配置
-setting = OptimizationSetting()
-setting.set_target("end_balance")
-setting.add_parameter("boll_window", 1, 20, 1)
-setting.add_parameter("atr_window", 3, 10, 1)
-# setting.add_parameter("fixed_size", 1, 1, 1)
-# setting.add_parameter("sell_multipliaer", 0.80, 0.99, 0.01)
-# setting.add_parameter("cover_multiplier", 1.01, 1.20, 0.01)
-# setting.add_parameter("pricetick_multiplier", 1, 5, 1)
-#%%
-result = engine.run_optimization(setting, output=True)
+# # engine.show_chart()
+# #%%
+# # 创建优化配置
+# # setting = OptimizationSetting()
+# # setting.set_target("end_balance")
+# # setting.add_parameter("boll_window", 1, 20, 1)
+# # setting.add_parameter("atr_window", 3, 10, 1)
+# # setting.add_parameter("fixed_size", 1, 1, 1)
+# # setting.add_parameter("sell_multipliaer", 0.80, 0.99, 0.01)
+# # setting.add_parameter("cover_multiplier", 1.01, 1.20, 0.01)
+# # setting.add_parameter("pricetick_multiplier", 1, 5, 1)
+# #%%
+# result = engine.run_optimization(setting, output=True)
 
-# 直接取出X、Y轴
-x = setting.params["boll_window"]
-y = setting.params["atr_window"]
+# # 直接取出X、Y轴
+# x = setting.params["boll_window"]
+# y = setting.params["atr_window"]
 
-# 通过映射的方式取出Z轴
-z_dict = {}
-for param_str, target, statistics in result:
-    param = eval(param_str)
-    z_dict[(param["boll_window"], param["atr_window"])] = target
+# # 通过映射的方式取出Z轴
+# z_dict = {}
+# for param_str, target, statistics in result:
+#     param = eval(param_str)
+#     z_dict[(param["boll_window"], param["atr_window"])] = target
 
-z = []
-for x_value in x:
-    z_buf = []
-    for y_value in y:
-        z_value = z_dict[(x_value, y_value)]
-        z_buf.append(z_value)
-    z.append(z_buf)
+# z = []
+# for x_value in x:
+#     z_buf = []
+#     for y_value in y:
+#         z_value = z_dict[(x_value, y_value)]
+#         z_buf.append(z_value)
+#     z.append(z_buf)
 
-fig = go.Figure(data=[go.Surface(z=z, x=x, y=y)])
-fig.update_layout(
-    title='优化结果', autosize=False,
-    width=600, height=600,
-    scene={
-        "xaxis": {"title": "boll_window"},
-        "yaxis": {"title": "atr_window"},
-        "zaxis": {"title": setting.target_name},
-    },
-    margin={"l": 65, "r": 50, "b": 65, "t": 90}
-)
-fig.show()
+# fig = go.Figure(data=[go.Surface(z=z, x=x, y=y)])
+# fig.update_layout(
+#     title='优化结果', autosize=False,
+#     width=600, height=600,
+#     scene={
+#         "xaxis": {"title": "boll_window"},
+#         "yaxis": {"title": "atr_window"},
+#         "zaxis": {"title": setting.target_name},
+#     },
+#     margin={"l": 65, "r": 50, "b": 65, "t": 90}
+# )
+# fig.show()
