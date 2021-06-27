@@ -1,22 +1,8 @@
 #%%
 import csv
 import copy
-
 from logging import currentframe
 from typing import Any, Callable
-from vnpy.app.cta_strategy import (
-    CtaTemplate,
-    BarGenerator,
-    ArrayManager,
-    TradeData,
-    StopOrder,
-    OrderData
-)
-from vnpy.app.cta_strategy.base import StopOrderStatus, BacktestingMode, EngineType
-from vnpy.app.cta_strategy.backtesting import BacktestingEngine, OptimizationSetting
-from vnpy.trader.object import BarData, TickData
-from vnpy.trader.constant import Interval, Offset, Direction, Exchange, Status
-
 import numpy as np
 import pandas as pd
 from datetime import time as time1
@@ -26,16 +12,23 @@ import talib
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 from matplotlib import style
-mpl.rcParams['font.family'] = 'serif'  # 解决一些字体显示乱码的问题
 
+mpl.rcParams['font.family'] = 'serif'  # 解决一些字体显示乱码的问题
 style.use('ggplot')
 import seaborn as sns
-
 sns.set()
+
+from vnpy_ctastrategy import CtaTemplate
+from vnpy_ctastrategy.base import StopOrder, StopOrderStatus
+from vnpy_ctastrategy.backtesting import BacktestingEngine, BacktestingMode, OptimizationSetting
+
+from vnpy.trader.object import TickData, BarData, OrderData, TradeData
+from vnpy.trader.constant import Interval, Offset, Direction, Exchange, Status
+from vnpy.trader.utility import BarGenerator, ArrayManager
 
 
 #%%
-class OscillatorDriveHNTest(CtaTemplate):
+class OscillatorHNBacktest(CtaTemplate):
     """"""
     author = "Huang Ning"
 
@@ -108,7 +101,7 @@ class OscillatorDriveHNTest(CtaTemplate):
             "strategy",
             "strategy_name"
         ]
-        self.trade_record_file = open("D:/CTA/1-策略开发/1-开发中的策略/14-oscillator_drive/trade_record.csv", "a", newline="")
+        self.trade_record_file = open("D:/CTA/1-策略开发/1-开发中的策略/14-oscillator_drive/backtesting_trade_record.csv", "a", newline="")
         self.trade_record_file_writer = csv.DictWriter(self.trade_record_file, trade_record_fields)
         self.trade_record_file_writer.writeheader()
 
@@ -139,28 +132,31 @@ class OscillatorDriveHNTest(CtaTemplate):
 
         if (self.clearance_time <= self.on_bar_time <= self.liq_time):
 
-            self.write_log(f"clearance time {self.on_bar_time}")
+            print(f"clearance time {self.on_bar_time}")
 
-            if not self.cta_engine.strategy_orderid_map[self.strategy_name]:
+            if not self.cta_engine.active_stop_orders and not self.cta_engine.active_limit_orders:
 
                 pos = copy.deepcopy(self.pos)
-                self.write_log(f"clearance time, no previous commission, self.pos:{pos}")
+                print(f"clearance time, no previous commission, self.pos:{pos}")
 
                 if self.pos > 0:
                     self.sell(self.liq_price - 5, abs(self.pos))
-                    self.write_log(f"clearance time, on_bar, sell volume:{pos} {self.on_bar_time}")
+                    print(f"clearance time, on_bar, sell volume:{pos} {self.on_bar_time}")
 
                 elif self.pos < 0:
                     self.cover(self.liq_price + 5, abs(self.pos))
-                    self.write_log(f"clearance time, on_bar, cover volume:{pos} {self.on_bar_time}")
+                    print(f"clearance time, on_bar, cover volume:{pos} {self.on_bar_time}")
 
             else:
-                orders_buf = copy.deepcopy(self.cta_engine.strategy_orderid_map[self.strategy_name])
-
-                if orders_buf:
-                    for vt_orderid in orders_buf:
+                if self.cta_engine.active_stop_orders:
+                    for vt_orderid in self.cta_engine.active_stop_orders:
                         self.cancel_order(vt_orderid)
-                        self.write_log(f"clearance time, on_bar, cancel {vt_orderid}")
+                        print(f"clearance time, on_bar, cancel {vt_orderid}")
+
+                if self.cta_engine.active_limit_orders:
+                    for vt_orderid in self.cta_engine.active_limit_orders:
+                        self.cancel_order(vt_orderid)
+                        print(f"clearance time, on_bar, cancel {vt_orderid}")
 
     def on_xmin_bar(self, bar: BarData):
         """"""
@@ -181,46 +177,52 @@ class OscillatorDriveHNTest(CtaTemplate):
 
             pos = copy.deepcopy(self.pos)
 
-            self.write_log(f"on_xmin_bar, self.pos:{pos} {self.on_bar_time}")
+            print(f"on_xmin_bar, self.pos:{pos} {self.on_bar_time}")
 
             if self.pos == 0:
 
                 self.trading_size = max(int(self.risk_level / self.atr_value), 1)
-                self.write_log(f"risk_level:{self.risk_level}, atr_value:{self.atr_value}, trading_size:{self.trading_size}")
+                # print(f"risk_level:{self.risk_level}, atr_value:{self.atr_value}, trading_size:{self.trading_size}")
                 
-                # if self.trading_size >= 2:
-                #     self.trading_size = 2
+                if self.trading_size >= 2:
+                    self.trading_size = 2
 
                 self.intra_trade_high = bar.high_price
                 self.intra_trade_low = bar.low_price
 
                 if self.ultosc > self.buy_dis:
 
-                    if not self.cta_engine.strategy_orderid_map[self.strategy_name]:   
+                    if not self.cta_engine.active_stop_orders and not self.cta_engine.active_limit_orders:   
                         self.buy(self.boll_up, self.trading_size, True)
-                        self.write_log(f"on_xmin_bar, buy_svt:{list(self.cta_engine.strategy_orderid_map[self.strategy_name])}, volume:{self.trading_size}")
+                        print(f"on_xmin_bar, buy_svt:{list(self.cta_engine.active_stop_orders.values())}, volume:{self.trading_size}")
 
                     else:
-                        orders_buf = copy.deepcopy(self.cta_engine.strategy_orderid_map[self.strategy_name])
-
-                        if orders_buf:
-                            for vt_orderid in orders_buf:
+                        if self.cta_engine.active_stop_orders:
+                            for vt_orderid in self.cta_engine.active_stop_orders:
                                 self.cancel_order(vt_orderid)
-                                self.write_log(f"on_xmin_bar, cancel {vt_orderid}")
+                                print(f"clearance time, on_bar, cancel {vt_orderid}")
+
+                        if self.cta_engine.active_limit_orders:
+                            for vt_orderid in self.cta_engine.active_limit_orders:
+                                self.cancel_order(vt_orderid)
+                                print(f"clearance time, on_bar, cancel {vt_orderid}")
 
                 elif self.ultosc < self.short_dis:
 
-                    if not self.cta_engine.strategy_orderid_map[self.strategy_name]:
+                    if not self.cta_engine.active_stop_orders and not self.cta_engine.active_limit_orders:
                         self.short(self.boll_down, self.trading_size, True)
-                        self.write_log(f"on_xmin_bar, short_svt:{list(self.cta_engine.strategy_orderid_map[self.strategy_name])}, volume:{self.trading_size}")
+                        print(f"on_xmin_bar, short_svt:{list(self.cta_engine.active_stop_orders.values())}, volume:{self.trading_size}")
 
                     else:
-                        orders_buf = copy.deepcopy(self.cta_engine.strategy_orderid_map[self.strategy_name])
-
-                        if orders_buf:
-                            for vt_orderid in orders_buf:
+                        if self.cta_engine.active_stop_orders:
+                            for vt_orderid in self.cta_engine.active_stop_orders:
                                 self.cancel_order(vt_orderid)
-                                self.write_log(f"on_xmin_bar, cancel {vt_orderid}")
+                                print(f"clearance time, on_bar, cancel {vt_orderid}")
+
+                        if self.cta_engine.active_limit_orders:
+                            for vt_orderid in self.cta_engine.active_limit_orders:
+                                self.cancel_order(vt_orderid)
+                                print(f"clearance time, on_bar, cancel {vt_orderid}")
 
             elif self.pos > 0:
                 self.intra_trade_high = max(self.intra_trade_high, bar.high_price)
@@ -228,17 +230,20 @@ class OscillatorDriveHNTest(CtaTemplate):
 
                 self.long_stop = self.intra_trade_high - self.atr_value * self.sl_multiplier
 
-                if not self.cta_engine.strategy_orderid_map[self.strategy_name]:
+                if not self.cta_engine.active_stop_orders and not self.cta_engine.active_limit_orders:
                     self.sell(self.long_stop, abs(self.pos), True)
-                    self.write_log(f"on_xmin_bar, sell_svt:{self.cta_engine.strategy_orderid_map[self.strategy_name]}, volume:{pos}")
+                    print(f"on_xmin_bar, sell_svt:{list(self.cta_engine.active_stop_orders.values())}, volume:{pos}")
 
                 else:
-                    orders_buf = copy.deepcopy(self.cta_engine.strategy_orderid_map[self.strategy_name])
-
-                    if orders_buf:
-                        for vt_orderid in orders_buf:
+                    if self.cta_engine.active_stop_orders:
+                        for vt_orderid in self.cta_engine.active_stop_orders:
                             self.cancel_order(vt_orderid)
-                            self.write_log(f"on_xmin_bar, cancel {vt_orderid}")
+                            print(f"clearance time, on_bar, cancel {vt_orderid}")
+
+                    if self.cta_engine.active_limit_orders:
+                        for vt_orderid in self.cta_engine.active_limit_orders:
+                            self.cancel_order(vt_orderid)
+                            print(f"clearance time, on_bar, cancel {vt_orderid}")
 
             else:
                 self.intra_trade_high = bar.high_price
@@ -246,17 +251,20 @@ class OscillatorDriveHNTest(CtaTemplate):
 
                 self.short_stop = self.intra_trade_low + self.atr_value * self.sl_multiplier
 
-                if not self.cta_engine.strategy_orderid_map[self.strategy_name]:
+                if not self.cta_engine.active_stop_orders and not self.cta_engine.active_limit_orders:
                     self.cover(self.short_stop, abs(self.pos), True)
-                    self.write_log(f"on_xmin_bar, cover_svt:{self.cta_engine.strategy_orderid_map[self.strategy_name]}, volume:{pos}")
+                    print(f"on_xmin_bar, cover_svt:{list(self.cta_engine.active_stop_orders.values())}, volume:{pos}")
 
                 else:
-                    orders_buf = copy.deepcopy(self.cta_engine.strategy_orderid_map[self.strategy_name])
-
-                    if orders_buf:
-                        for vt_orderid in orders_buf:
+                    if self.cta_engine.active_stop_orders:
+                        for vt_orderid in self.cta_engine.active_stop_orders:
                             self.cancel_order(vt_orderid)
-                            self.write_log(f"on_xmin_bar, cancel {vt_orderid}")
+                            print(f"clearance time, on_bar, cancel {vt_orderid}")
+
+                    if self.cta_engine.active_limit_orders:
+                        for vt_orderid in self.cta_engine.active_limit_orders:
+                            self.cancel_order(vt_orderid)
+                            print(f"clearance time, on_bar, cancel {vt_orderid}")
 
         self.sync_data()  # 防止出现宕机数据丢失
         self.put_event()
@@ -266,7 +274,7 @@ class OscillatorDriveHNTest(CtaTemplate):
 
         on_stop_order_time = datetime.now().time()
 
-        self.write_log(f"on_stop_order, {stop_order.stop_orderid} {stop_order.status} {stop_order.offset} {stop_order.direction}, on_stop_order_time:{on_stop_order_time}")
+        print(f"on_stop_order, {stop_order.stop_orderid} {stop_order.status} {stop_order.offset} {stop_order.direction}, on_stop_order_time:{on_stop_order_time}")
 
         if stop_order.status == StopOrderStatus.WAITING:
             return
@@ -277,44 +285,43 @@ class OscillatorDriveHNTest(CtaTemplate):
 
                 if self.pos == 0:
                     if self.ultosc > self.buy_dis:
-                        if not self.cta_engine.strategy_orderid_map[self.strategy_name]:
+                        if not self.cta_engine.active_stop_orders and not self.cta_engine.active_limit_orders:
                             self.buy(self.boll_up, self.trading_size, True)
-                            self.write_log(f"on_stop_order, buy_svt:{list(self.cta_engine.strategy_orderid_map[self.strategy_name])}, volume:{self.trading_size}")
+                            print(f"on_stop_order, buy_svt:{list(self.cta_engine.active_stop_orders.values())}, volume:{self.trading_size}")
 
                     elif self.ultosc < self.short_dis:
-                        if not self.cta_engine.strategy_orderid_map[self.strategy_name]:
+                        if not self.cta_engine.active_stop_orders and not self.cta_engine.active_limit_orders:
                             self.short(self.boll_down, self.trading_size, True)
-                            self.write_log(f"on_stop_order, short_svt:{list(self.cta_engine.strategy_orderid_map[self.strategy_name])}, volume:{self.trading_size}")
+                            print(f"on_stop_order, short_svt:{list(self.cta_engine.active_stop_orders.values())}, volume:{self.trading_size}")
 
                 elif self.pos > 0:
                     pos = copy.deepcopy(self.pos)
 
-                    if not self.cta_engine.strategy_orderid_map[self.strategy_name]:
+                    if not self.cta_engine.active_stop_orders and not self.cta_engine.active_limit_orders:
                         self.sell(self.long_stop, abs(self.pos), True)
-                        self.write_log(f"on_stop_order, sell_svt:{list(self.cta_engine.strategy_orderid_map[self.strategy_name])}, volume:{pos}")
+                        print(f"on_stop_order, sell_svt:{list(self.cta_engine.active_stop_orders.values())}, volume:{pos}")
 
                 else:
                     pos = copy.deepcopy(self.pos)
 
-                    if not self.cta_engine.strategy_orderid_map[self.strategy_name]:  
+                    if not self.cta_engine.active_stop_orders and not self.cta_engine.active_limit_orders:  
                         self.cover(self.short_stop, abs(self.pos), True)
-                        self.write_log(f"on_stop_order, cover_svt:{list(self.cta_engine.strategy_orderid_map[self.strategy_name])}, volume:{pos}")
+                        print(f"on_stop_order, cover_svt:{list(self.cta_engine.active_stop_orders.values())}, volume:{pos}")
 
         else:
-
             if stop_order.status == StopOrderStatus.CANCELLED:
 
                 pos = copy.deepcopy(self.pos)
 
                 if self.pos > 0:
-                    if not self.cta_engine.strategy_orderid_map[self.strategy_name]:
+                    if not self.cta_engine.active_stop_orders and not self.cta_engine.active_limit_orders:
                         self.sell(self.liq_price - 5, abs(self.pos))
-                        self.write_log(f"clearance time, on_stop_order, sell volume:{pos}, on_bar_time:{self.on_bar_time}")
+                        print(f"clearance time, on_stop_order, sell volume:{pos}, on_bar_time:{self.on_bar_time}")
 
                 elif self.pos < 0:
-                    if not self.cta_engine.strategy_orderid_map[self.strategy_name]:
+                    if not self.cta_engine.active_stop_orders and not self.cta_engine.active_limit_orders:
                         self.cover(self.liq_price + 5, abs(self.pos))
-                        self.write_log(f"clearance time, on_stop_order, cover volume:{pos}, on_bar_time:{self.on_bar_time}")
+                        print(f"clearance time, on_stop_order, cover volume:{pos}, on_bar_time:{self.on_bar_time}")
 
         self.put_event()
 
@@ -323,7 +330,7 @@ class OscillatorDriveHNTest(CtaTemplate):
 
         on_order_time = datetime.now().time()
 
-        self.write_log(f"on_order, {order.orderid} {order.status} {order.offset} {order.direction}, on_order_time:{on_order_time}")
+        print(f"on_order, {order.orderid} {order.status} {order.offset} {order.direction}, on_order_time:{on_order_time}")
 
         # ACTIVE_STATUSES = set([Status.SUBMITTING, Status.NOTTRADED, Status.PARTTRADED])
         if order.is_active():
@@ -336,28 +343,28 @@ class OscillatorDriveHNTest(CtaTemplate):
 
                 if self.pos == 0:
                     if self.ultosc > self.buy_dis:
-                        if not self.cta_engine.strategy_orderid_map[self.strategy_name]:
+                        if not self.cta_engine.active_stop_orders and not self.cta_engine.active_limit_orders:
                             self.buy(self.boll_up, self.trading_size, True)
-                            self.write_log(f"on_order, buy_svt:{list(self.cta_engine.strategy_orderid_map[self.strategy_name])}, volume:{self.trading_size}")
+                            print(f"on_order, buy_svt:{list(self.cta_engine.active_stop_orders.values())}, volume:{self.trading_size}")
 
                     elif self.ultosc < self.short_dis:
-                        if not self.cta_engine.strategy_orderid_map[self.strategy_name]:
+                        if not self.cta_engine.active_stop_orders and not self.cta_engine.active_limit_orders:
                             self.short(self.boll_down, self.trading_size, True)
-                            self.write_log(f"on_order, short_svt:{list(self.cta_engine.strategy_orderid_map[self.strategy_name])}, volume:{self.trading_size}")
+                            print(f"on_order, short_svt:{list(self.cta_engine.active_stop_orders.values())}, volume:{self.trading_size}")
 
                 elif self.pos > 0:
                     pos = copy.deepcopy(self.pos)
 
-                    if not self.cta_engine.strategy_orderid_map[self.strategy_name]:
+                    if not self.cta_engine.active_stop_orders and not self.cta_engine.active_limit_orders:
                         self.sell(self.long_stop, abs(self.pos), True)
-                        self.write_log(f"on_order, sell_svt:{list(self.cta_engine.strategy_orderid_map[self.strategy_name])}, volume:{pos}")
+                        print(f"on_order, sell_svt:{list(self.cta_engine.active_stop_orders.values())}, volume:{pos}")
 
                 else:
                     pos = copy.deepcopy(self.pos)
 
-                    if not self.cta_engine.strategy_orderid_map[self.strategy_name]:
+                    if not self.cta_engine.active_stop_orders and not self.cta_engine.active_limit_orders:
                         self.cover(self.short_stop, abs(self.pos), True)
-                        self.write_log(f"on_order, cover_svt:{list(self.cta_engine.strategy_orderid_map[self.strategy_name])}, volume:{pos}")
+                        print(f"on_order, cover_svt:{list(self.cta_engine.active_stop_orders.values())}, volume:{pos}")
 
         else:
 
@@ -366,25 +373,21 @@ class OscillatorDriveHNTest(CtaTemplate):
                 pos = copy.deepcopy(self.pos)
 
                 if self.pos > 0:
-                    if not self.cta_engine.strategy_orderid_map[self.strategy_name]:
+                    if not self.cta_engine.active_stop_orders and not self.cta_engine.active_limit_orders:
                         self.sell(self.liq_price - 5, abs(self.pos))
-                        self.write_log(f"clearance time, on_order, sell volume:{pos}, on_bar_time:{self.on_bar_time}")
+                        print(f"clearance time, on_order, sell volume:{pos}, on_bar_time:{self.on_bar_time}")
 
                 elif self.pos < 0:
-                    if not self.cta_engine.strategy_orderid_map[self.strategy_name]:
+                    if not self.cta_engine.active_stop_orders and not self.cta_engine.active_limit_orders:
                         self.cover(self.liq_price + 5, abs(self.pos))
-                        self.write_log(f"clearance time, on_order, cover volume:{pos}, on_bar_time:{self.on_bar_time}")
+                        print(f"clearance time, on_order, cover volume:{pos}, on_bar_time:{self.on_bar_time}")
 
         self.put_event()
 
     def on_trade(self, trade: TradeData):
         """"""
 
-        self.write_log(f"on_trade, {trade.vt_symbol} {trade.orderid} {trade.offset} {trade.direction} {trade.price} {trade.volume} {trade.datetime}, trade_time:{trade.datetime}")
-
-        subject = f"trade notice, trade_time:{trade.datetime}"
-        msg = f"trading record: {trade.vt_symbol}\n{trade.orderid}\n{trade.offset}\n{trade.direction}\n{trade.price}\n{trade.volume}\n{trade.datetime}, trade_time:{trade.datetime}"
-        self.cta_engine.main_engine.send_email(subject, msg)
+        print(f"on_trade, {trade.vt_symbol} {trade.orderid} {trade.offset} {trade.direction} {trade.price} {trade.volume} {trade.datetime}, trade_time:{trade.datetime}")
 
         trade_record_dict = {
             "vt_symbol": trade.vt_symbol,
@@ -394,14 +397,12 @@ class OscillatorDriveHNTest(CtaTemplate):
             "direction": trade.direction,
             "price": trade.price,
             "volume": trade.volume,
-            "datetime": trade.datetime,
-            "strategy": self.cta_engine.strategies[self.strategy_name],
-            "strategy_name": self.strategy_name
+            "datetime": trade.datetime
         }
 
         self.trade_record_file_writer.writerow(trade_record_dict)
         self.trade_record_file.flush()  # 强制同步
-        self.write_log("Trading Record Is Saved")
+        print("Trading Record Is Saved")
 
         self.put_event()
 
@@ -415,6 +416,7 @@ class XminBarGenerator(BarGenerator):
         interval: Interval = Interval.MINUTE
     ):
         super().__init__(on_bar, window, on_window_bar, interval)
+
 
     def update_bar(self, bar: BarData) ->None:
         """
@@ -493,3 +495,45 @@ class XminBarGenerator(BarGenerator):
 
         # Cache last bar object
         self.last_bar = bar
+
+#%%
+start1 = time.time()
+engine = BacktestingEngine()
+engine.set_parameters(
+    vt_symbol="rb888.SHFE",
+    interval="1m",
+    start=datetime(2021, 1, 1),
+    end=datetime(2021, 4, 29),
+    rate=0.0001,
+    slippage=0.2,
+    size=10,
+    pricetick=1,
+    capital=50000,
+    mode=BacktestingMode.BAR
+)
+engine.add_strategy(OscillatorHNBacktest, {})
+#%%
+start2 = time.time()
+engine.load_data()
+end2 = time.time()
+print(f"加载数据所需时长: {(end2-start2)} Seconds")
+#%%
+engine.run_backtesting()
+#%%
+engine.calculate_result()
+engine.calculate_statistics()
+# 待测试的代码
+end1 = time.time()
+print(f"单次回测运行时长: {(end1-start1)} Seconds")
+engine.show_chart()
+#%%
+# setting = OptimizationSetting()
+# setting.set_target("end_balance")
+# setting.add_parameter("bar_window_length", 1, 20, 1)
+# setting.add_parameter("cci_window", 3, 10, 1)
+# setting.add_parameter("fixed_size", 1, 1, 1)
+# setting.add_parameter("sell_multipliaer", 0.80, 0.99, 0.01)
+# setting.add_parameter("cover_multiplier", 1.01, 1.20, 0.01)
+# setting.add_parameter("pricetick_multiplier", 1, 5, 1)
+#%%
+# engine.run_optimization(setting, output=True)

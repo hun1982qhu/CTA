@@ -1,0 +1,6 @@
+vt_symbol,orderid,tradeid,offset,direction,price,volume,datetime,strategy,strategy_name
+rb888.SHFE,1,1,Offset.OPEN,Direction.SHORT,4299.0,2,2021-01-15 09:58:00+08:00,,
+rb888.SHFE,2,2,Offset.CLOSE,Direction.LONG,4337.0,2,2021-01-15 11:24:00+08:00,,
+vt_symbol,orderid,tradeid,offset,direction,price,volume,datetime,strategy,strategy_name
+rb888.SHFE,1,1,Offset.OPEN,Direction.SHORT,4299.0,2,2021-01-15 09:58:00+08:00,,
+rb888.SHFE,2,2,Offset.CLOSE,Direction.LONG,4337.0,2,2021-01-15 11:24:00+08:00,,
