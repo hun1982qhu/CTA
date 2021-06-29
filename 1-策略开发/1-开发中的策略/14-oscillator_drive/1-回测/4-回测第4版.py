@@ -89,10 +89,15 @@ class OscillatorHNBacktest(CtaTemplate):
         self.clearance_time = time1(14, 57)
         self.liq_time = time1(14, 59)
 
-        self.buy_vt_orderids = []
-        self.sell_vt_orderids = []
-        self.short_vt_orderids = []
-        self.cover_vt_orderids = []
+        self.buy_svt_orderids = []
+        self.sell_svt_orderids = []
+        self.short_svt_orderids = []
+        self.cover_svt_orderids = []
+
+        self.buy_lvt_orderids = []
+        self.sell_lvt_orderids = []
+        self.short_lvt_orderids = []
+        self.cover_lvt_orderids = []
 
         trade_record_fields = [
             "vt_symbol",
@@ -137,26 +142,32 @@ class OscillatorHNBacktest(CtaTemplate):
 
         if (self.clearance_time <= self.on_bar_time <= self.liq_time):
 
-            if not self.buy_vt_orderids and not self.short_vt_orderids\
-                and not self.sell_vt_orderids and not self.cover_vt_orderids:
+            if not self.buy_svt_orderids and not self.short_svt_orderids\
+                and not self.sell_svt_orderids and not self.cover_svt_orderids\
+                    and not self.buy_lvt_orderids and not self.short_lvt_orderids\
+                        and not self.sell_lvt_orderids and not self.cover_lvt_orderids:
+                        
+                        pos = copy.deepcopy(self.pos)
+                        self.write_log(f"clearance time, no previous commission, self.pos:{pos}")
 
-                pos = copy.deepcopy(self.pos)
-                self.write_log(f"clearance time, no previous commission, self.pos:{pos}")
+                        if self.pos > 0:
+                            self.sell_lvt_orderids = self.sell(self.liq_price - 5, abs(self.pos))
+                            self.write_log(f"clearance time, on_bar, sell volume:{pos} {self.on_bar_time}")
 
-                if self.pos > 0:
-                    self.sell(self.liq_price - 5, abs(self.pos))
-                    self.write_log(f"clearance time, on_bar, sell volume:{pos} {self.on_bar_time}")
-
-                elif self.pos < 0:
-                    self.cover(self.liq_price + 5, abs(self.pos))
-                    self.write_log(f"clearance time, on_bar, cover volume:{pos} {self.on_bar_time}")
+                        elif self.pos < 0:
+                            self.cover_lvt_orderids = self.cover(self.liq_price + 5, abs(self.pos))
+                            self.write_log(f"clearance time, on_bar, cover volume:{pos} {self.on_bar_time}")
 
             else:
                 for buf_orderids in [
-                    self.buy_vt_orderids, 
-                    self.sell_vt_orderids, 
-                    self.short_vt_orderids, 
-                    self.cover_vt_orderids]:
+                    self.buy_svt_orderids, 
+                    self.sell_svt_orderids, 
+                    self.short_svt_orderids, 
+                    self.cover_svt_orderids,
+                    self.buy_lvt_orderids,
+                    self.sell_lvt_orderids,
+                    self.short_lvt_orderids,
+                    self.cover_lvt_orderids]:
 
                     if buf_orderids:
                         for vt_orderid in buf_orderids:
@@ -196,35 +207,35 @@ class OscillatorHNBacktest(CtaTemplate):
 
                 if self.ultosc > self.buy_dis:
 
-                    if not self.buy_vt_orderids and not self.short_vt_orderids:   
-                        self.buy_vt_orderids = self.buy(self.boll_up, self.trading_size, True)
-                        self.write_log(f"on_xmin_bar, buy_svt:{self.buy_vt_orderids}, volume:{self.trading_size}")
+                    if not self.buy_svt_orderids and not self.short_svt_orderids:   
+                        self.buy_svt_orderids = self.buy(self.boll_up, self.trading_size, True)
+                        self.write_log(f"on_xmin_bar, buy_svt:{self.buy_svt_orderids}, volume:{self.trading_size}")
 
                     else:
-                        if self.buy_vt_orderids:
-                            for vt_orderid in self.buy_vt_orderids:
+                        if self.buy_svt_orderids:
+                            for vt_orderid in self.buy_svt_orderids:
                                 self.cancel_order(vt_orderid)
                                 self.write_log(f"on_xmin_bar, cancel {vt_orderid}")
 
-                        if self.short_vt_orderids:
-                            for vt_orderid in self.short_vt_orderids:
+                        if self.short_svt_orderids:
+                            for vt_orderid in self.short_svt_orderids:
                                 self.cancel_order(vt_orderid)
                                 self.write_log(f"on_xmin_bar, cancel {vt_orderid}")
 
                 elif self.ultosc < self.short_dis:
 
-                    if not self.buy_vt_orderids and self.short_vt_orderids:
-                        self.short_vt_orderids = self.short(self.boll_down, self.trading_size, True)
-                        self.write_log(f"on_xmin_bar, short_svt:{self.short_vt_orderids}, volume:{self.trading_size}")
+                    if not self.buy_svt_orderids and self.short_svt_orderids:
+                        self.short_svt_orderids = self.short(self.boll_down, self.trading_size, True)
+                        self.write_log(f"on_xmin_bar, short_svt:{self.short_svt_orderids}, volume:{self.trading_size}")
 
                     else:
-                        if self.buy_vt_orderids:
-                            for vt_orderid in self.buy_vt_orderids:
+                        if self.buy_svt_orderids:
+                            for vt_orderid in self.buy_svt_orderids:
                                 self.cancel_order(vt_orderid)
                                 self.write_log(f"on_xmin_bar, cancel {vt_orderid}")
 
-                        if self.short_vt_orderids:
-                            for vt_orderid in self.short_vt_orderids:
+                        if self.short_svt_orderids:
+                            for vt_orderid in self.short_svt_orderids:
                                 self.cancel_order(vt_orderid)
                                 self.write_log(f"on_xmin_bar, cancel {vt_orderid}")
 
@@ -234,12 +245,12 @@ class OscillatorHNBacktest(CtaTemplate):
 
                 self.long_stop = self.intra_trade_high - self.atr_value * self.sl_multiplier
 
-                if not self.sell_vt_orderids:
-                    self.sell_vt_orderids = self.sell(self.long_stop, abs(self.pos), True)
-                    self.write_log(f"on_xmin_bar, sell_svt:{self.sell_vt_orderids}, volume:{pos}")
+                if not self.sell_svt_orderids:
+                    self.sell_svt_orderids = self.sell(self.long_stop, abs(self.pos), True)
+                    self.write_log(f"on_xmin_bar, sell_svt:{self.sell_svt_orderids}, volume:{pos}")
 
                 else:
-                    for vt_orderid in self.sell_vt_orderids:
+                    for vt_orderid in self.sell_svt_orderids:
                         self.cancel_order(vt_orderid)
                         self.write_log(f"on_xmin_bar, cancel {vt_orderid}")
 
@@ -249,12 +260,12 @@ class OscillatorHNBacktest(CtaTemplate):
 
                 self.short_stop = self.intra_trade_low + self.atr_value * self.sl_multiplier
 
-                if not self.cover_vt_orderids:
-                    self.cover_vt_orderids = self.cover(self.short_stop, abs(self.pos), True)
-                    self.write_log(f"on_xmin_bar, cover_svt:{self.cover_vt_orderids}, volume:{pos}")
+                if not self.cover_svt_orderids:
+                    self.cover_svt_orderids = self.cover(self.short_stop, abs(self.pos), True)
+                    self.write_log(f"on_xmin_bar, cover_svt:{self.cover_svt_orderids}, volume:{pos}")
 
                 else:
-                    for vt_orderid in self.cover_vt_orderids:
+                    for vt_orderid in self.cover_svt_orderids:
                         self.cancel_order(vt_orderid)
                         self.write_log(f"on_xmin_bar, cancel {vt_orderid}")
 
@@ -278,28 +289,28 @@ class OscillatorHNBacktest(CtaTemplate):
 
                 if self.pos == 0:
                     if self.ultosc > self.buy_dis:
-                        if not self.buy_vt_orderids and self.short_vt_orderids:
-                            self.buy_vt_orderids = self.buy(self.boll_up, self.trading_size, True)
-                            self.write_log(f"on_order, buy_svt:{self.buy_vt_orderids}, volume:{self.trading_size}")
+                        if not self.buy_svt_orderids and self.short_svt_orderids:
+                            self.buy_svt_orderids = self.buy(self.boll_up, self.trading_size, True)
+                            self.write_log(f"on_order, buy_svt:{self.buy_svt_orderids}, volume:{self.trading_size}")
 
                     elif self.ultosc < self.short_dis:
-                        if not self.buy_vt_orderids and self.short_vt_orderids:
-                            self.short_vt_orderids = self.short(self.boll_down, self.trading_size, True)
-                            self.write_log(f"on_order, short_svt:{self.short_vt_orderids}, volume:{self.trading_size}")
+                        if not self.buy_svt_orderids and self.short_svt_orderids:
+                            self.short_svt_orderids = self.short(self.boll_down, self.trading_size, True)
+                            self.write_log(f"on_order, short_svt:{self.short_svt_orderids}, volume:{self.trading_size}")
 
                 elif self.pos > 0:
                     pos = copy.deepcopy(self.pos)
 
-                    if not self.sell_vt_orderids:
-                        self.sell_vt_orderids = self.sell(self.long_stop, abs(self.pos), True)
-                        self.write_log(f"on_order, sell_svt:{self.sell_vt_orderids}, volume:{pos}")
+                    if not self.sell_svt_orderids:
+                        self.sell_svt_orderids = self.sell(self.long_stop, abs(self.pos), True)
+                        self.write_log(f"on_order, sell_svt:{self.sell_svt_orderids}, volume:{pos}")
 
                 else:
                     pos = copy.deepcopy(self.pos)
 
-                    if not self.cover_vt_orderids:
-                        self.cover_vt_orderids = self.cover(self.short_stop, abs(self.pos), True)
-                        self.write_log(f"on_order, cover_svt:{self.cover_vt_orderids}, volume:{pos}")
+                    if not self.cover_svt_orderids:
+                        self.cover_svt_orderids = self.cover(self.short_stop, abs(self.pos), True)
+                        self.write_log(f"on_order, cover_svt:{self.cover_svt_orderids}, volume:{pos}")
 
         else:
             if order.status in [Status.CANCELLED, Status.REJECTED]:
@@ -307,14 +318,22 @@ class OscillatorHNBacktest(CtaTemplate):
                 pos = copy.deepcopy(self.pos)
 
                 if self.pos > 0:
-                    if not self.cta_engine.strategy_orderid_map[self.strategy_name]:
-                        self.sell(self.liq_price - 5, abs(self.pos))
-                        self.write_log(f"clearance time, on_order, sell volume:{pos}, on_bar_time:{self.on_bar_time}")
+                    if not self.buy_svt_orderids and not self.short_svt_orderids\
+                        and not self.sell_svt_orderids and not self.cover_svt_orderids\
+                            and not self.buy_lvt_orderids and not self.short_lvt_orderids\
+                                and not self.sell_lvt_orderids and not self.cover_lvt_orderids:
+                                
+                                self.sell_lvt_orderids = self.sell(self.liq_price - 5, abs(self.pos))
+                                self.write_log(f"clearance time, on_order, sell volume:{pos}, on_bar_time:{self.on_bar_time}")
 
                 elif self.pos < 0:
-                    if not self.cta_engine.strategy_orderid_map[self.strategy_name]:
-                        self.cover(self.liq_price + 5, abs(self.pos))
-                        self.write_log(f"clearance time, on_order, cover volume:{pos}, on_bar_time:{self.on_bar_time}")
+                    if not self.buy_svt_orderids and not self.short_svt_orderids\
+                        and not self.sell_svt_orderids and not self.cover_svt_orderids\
+                            and not self.buy_lvt_orderids and not self.short_lvt_orderids\
+                                and not self.sell_lvt_orderids and not self.cover_lvt_orderids:
+                                
+                                self.cover_lvt_orderids = self.cover(self.liq_price + 5, abs(self.pos))
+                                self.write_log(f"clearance time, on_order, cover volume:{pos}, on_bar_time:{self.on_bar_time}")
 
         self.put_event()
 
