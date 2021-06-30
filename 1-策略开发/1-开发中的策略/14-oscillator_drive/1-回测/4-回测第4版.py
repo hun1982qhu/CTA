@@ -111,7 +111,7 @@ class OscillatorHNBacktest(CtaTemplate):
             "strategy",
             "strategy_name"
         ]
-        self.trade_record_file = open("D:/CTA/1-策略开发/1-开发中的策略/14-oscillator_drive/backtesting_trade_record.csv", "a", newline="")
+        self.trade_record_file = open("C:/Users/黄柠/strategies/backtesting_trade_record.csv", "a", newline="")
         self.trade_record_file_writer = csv.DictWriter(self.trade_record_file, trade_record_fields)
         self.trade_record_file_writer.writeheader()
 
@@ -339,40 +339,101 @@ class OscillatorHNBacktest(CtaTemplate):
 
     def on_trade(self, trade: TradeData):
         """"""
+
+        self.write_log(f"on_trade, {trade.vt_symbol} {trade.orderid} {trade.offset} {trade.direction} {trade.price} {trade.volume} {trade.datetime}, trade_time:{trade.datetime}")
+
+        subject = f"trade notice, trade_time:{trade.datetime}"
+        msg = f"trading record: {trade.vt_symbol}\n{trade.orderid}\n{trade.offset}\n{trade.direction}\n{trade.price}\n{trade.volume}\n{trade.datetime}, trade_time:{trade.datetime}"
+        self.cta_engine.main_engine.send_email(subject, msg)
+
+        trade_record_dict = {
+            "vt_symbol": trade.vt_symbol,
+            "orderid": trade.orderid,
+            "tradeid": trade.tradeid,
+            "offset": trade.offset,
+            "direction": trade.direction,
+            "price": trade.price,
+            "volume": trade.volume,
+            "datetime": trade.datetime,
+            "strategy": self.cta_engine.strategies[self.strategy_name],
+            "strategy_name": self.strategy_name
+        }
+
+        self.trade_record_file_writer.writerow(trade_record_dict)
+        self.trade_record_file.flush()  # 强制同步
+        self.write_log("Trading Record Is Saved")
+
         self.put_event()
 
     def on_stop_order(self, stop_order: StopOrder):
         """"""
-        # 只处理CANCELLED和TRIGGERED这两种状态的委托
+        on_stop_order_time = stop_order.datetime.time()
+
+        self.write_log(f"on_stop_order, {stop_order.stop_orderid} {stop_order.status} {stop_order.offset} {stop_order.direction}, on_stop_order_time:{on_stop_order_time}")
+
         if stop_order.status == StopOrderStatus.WAITING:
             return
 
         for buf_orderids in [
-            self.buy_vt_orderids,
-            self.sell_vt_orderids,
-            self.short_vt_orderids,
-            self.cover_vt_orderids
+            self.buy_svt_orderids,
+            self.sell_svt_orderids,
+            self.short_svt_orderids,
+            self.cover_svt_orderids
         ]:
             if stop_order.stop_orderid in buf_orderids:
                 buf_orderids.remove(stop_order.stop_orderid)
 
-        if stop_order.status == StopOrderStatus.CANCELLED:
-            if self.pos == 0:
-                if self.ultosc > self.buy_dis:
-                    if not self.buy_vt_orderids:
-                        self.buy_vt_orderids = self.buy(self.boll_up, self.trading_size, True)
+        if not (self.clearance_time <= self.on_bar_time <= self.liq_time):
 
-                elif self.ultosc < self.sell_dis:
-                    if not self.short_vt_orderids:
-                        self.short_vt_orderids = self.short(self.boll_down, self.trading_size, True)
+            if stop_order.status == StopOrderStatus.CANCELLED:
 
-            elif self.pos > 0:  
-                if not self.sell_vt_orderids:
-                    self.sell_vt_orderids = self.sell(self.long_stop, abs(self.pos), True)
+                if self.pos == 0:
+                    if self.ultosc > self.buy_dis:
+                        if not self.buy_svt_orderids and not self.short_svt_orderids:
+                            self.buy_svt_orderids = self.buy(self.boll_up, self.trading_size, True)
+                            self.write_log(f"on_stop_order, buy_svt:{self.buy_svt_orderids}, volume:{self.trading_size}")
 
-            else:     
-                if not self.cover_vt_orderids:
-                    self.cover_vt_orderids = self.cover(self.short_stop, abs(self.pos), True)
+                    elif self.ultosc < self.short_dis:
+                        if not self.buy_svt_orderids and not self.short_svt_orderids:
+                            self.short_svt_orderids = self.short(self.boll_down, self.trading_size, True)
+                            self.write_log(f"on_stop_order, short_svt:{self.short_svt_orderids}, volume:{self.trading_size}")
+
+                elif self.pos > 0:
+                    pos = copy.deepcopy(self.pos)
+
+                    if not self.sell_svt_orderids:
+                        self.sell_svt_orderids = self.sell(self.long_stop, abs(self.pos), True)
+                        self.write_log(f"on_stop_order, sell_svt:{self.sell_svt_orderids}, volume:{pos}")
+
+                else:
+                    pos = copy.deepcopy(self.pos)
+
+                    if not self.cover_svt_orderids:  
+                        self.cover_svt_orderids = self.cover(self.short_stop, abs(self.pos), True)
+                        self.write_log(f"on_stop_order, cover_svt:{self.cover_svt_orderids}, volume:{pos}")
+
+        else:
+            if stop_order.status == StopOrderStatus.CANCELLED:
+
+                pos = copy.deepcopy(self.pos)
+
+                if self.pos > 0:
+                    if not self.buy_svt_orderids and not self.short_svt_orderids\
+                        and not self.sell_svt_orderids and not self.cover_svt_orderids\
+                            and not self.buy_lvt_orderids and not self.short_lvt_orderids\
+                                and not self.sell_lvt_orderids and not self.cover_lvt_orderids:
+                                
+                                self.sell_lvt_orderids = self.sell(self.liq_price - 5, abs(self.pos))
+                                self.write_log(f"clearance time, on_stop_order, sell volume:{pos}, on_bar_time:{self.on_bar_time}")
+
+                elif self.pos < 0:
+                    if not self.buy_svt_orderids and not self.short_svt_orderids\
+                        and not self.sell_svt_orderids and not self.cover_svt_orderids\
+                            and not self.buy_lvt_orderids and not self.short_lvt_orderids\
+                                and not self.sell_lvt_orderids and not self.cover_lvt_orderids:
+                                
+                                self.cover_lvt_orderids = self.cover(self.liq_price + 5, abs(self.pos))
+                                self.write_log(f"clearance time, on_stop_order, cover volume:{pos}, on_bar_time:{self.on_bar_time}")
 
         self.put_event()        
 
