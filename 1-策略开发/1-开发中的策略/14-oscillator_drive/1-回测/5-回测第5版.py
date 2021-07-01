@@ -132,7 +132,7 @@ class OscillatorHNBacktest(CtaTemplate):
 
     def on_bar(self, bar: BarData):
         """"""
-        
+
         self.liq_price = bar.close_price
         self.on_bar_time = bar.datetime.time()
 
@@ -167,7 +167,7 @@ class OscillatorHNBacktest(CtaTemplate):
                     if buf_orderids:
                         for vt_orderid in buf_orderids:
                             self.cancel_order(vt_orderid)
-                            print(f"clearance time\non_bar, cancel {vt_orderid}")
+                            print(f"clearance time, on_bar, cancel {vt_orderid}")
 
     def on_xmin_bar(self, bar: BarData):
         """"""
@@ -271,14 +271,14 @@ class OscillatorHNBacktest(CtaTemplate):
         """"""
         on_stop_order_time = stop_order.datetime.time()
 
-        print(
-            f"on_stop_order\n\
+        print(f"\
+            on_stop_order\n\
             stop_orderid:{stop_order.stop_orderid}\n\
             status:{stop_order.status}\n\
             offset:{stop_order.offset}\n\
             direction:{stop_order.direction}\n\
-            on_stop_order_time:{on_stop_order_time}"
-            )
+            on_stop_order_time:{on_stop_order_time}\
+            ")
 
         if stop_order.status == StopOrderStatus.WAITING:
             return
@@ -348,9 +348,14 @@ class OscillatorHNBacktest(CtaTemplate):
         """"""
 
         on_order_time = order.datetime.time()
-        print(
-            f"on_order, {order.orderid} {order.status} {order.offset} \
-                {order.direction}, on_order_time:{on_order_time}")
+        print(f"\
+            on_order\n\
+            orderid:{order.orderid}\n\
+            status:{order.status}\n\
+            offset:{order.offset}\n\
+            direction:{order.direction}\n\
+            on_order_time:{on_order_time}\
+            ")
 
         # ACTIVE_STATUSES = set([Status.SUBMITTING, Status.NOTTRADED, Status.PARTTRADED])
         if order.is_active():
@@ -411,9 +416,16 @@ class OscillatorHNBacktest(CtaTemplate):
 
     def on_trade(self, trade: TradeData):
         """"""
-        print(
-            f"on_trade, {trade.vt_symbol} {trade.orderid} {trade.offset} {trade.direction} \
-                {trade.price} {trade.volume} {trade.datetime}, trade_time:{trade.datetime}")
+        print(f"\
+            on_trade\n\
+            vt_symbol:{trade.vt_symbol}\n\
+            orderid:{trade.orderid}\n\
+            offset:{trade.offset}\n\
+            direction:{trade.direction}\n\
+            price:{trade.price}\n\
+            volume:{trade.volume}\n\
+            trade_time:{trade.datetime}\
+            ")
 
         self.put_event()      
 
