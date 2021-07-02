@@ -86,8 +86,8 @@ class OscillatorHNBacktest(CtaTemplate):
         self.liq_price = 0
 
         self.on_bar_time = time1(0, 0)
-        self.clearance_time = time1(14, 57)
-        self.liq_time = time1(14, 59)
+        self.clearance_time = time1(14, 57)  # 清仓开始时间
+        self.liq_time = time1(14, 59)  # 交易所清算开始时间
 
         self.buy_svt_orderids = []
         self.sell_svt_orderids = []
@@ -143,23 +143,23 @@ class OscillatorHNBacktest(CtaTemplate):
             if not self.buy_svt_orderids and not self.short_svt_orderids\
                 and not self.sell_svt_orderids and not self.cover_svt_orderids\
                     and not self.sell_lvt_orderids and not self.cover_lvt_orderids:
-                    
+                                      
                     pos = copy.deepcopy(self.pos)
-                    print(f"clearance time\nno previous commission\nself.pos:{pos}")
+                    print(f"clearance time, no previous commission, self.pos:{pos}")
 
                     if self.pos > 0:
                         self.sell_lvt_orderids = self.sell(self.liq_price - 5, abs(self.pos))
-                        print(f"clearance time\non_bar, sell volume:{pos}\n{self.on_bar_time}")
+                        print(f"clearance time, on_bar, sell volume:{pos} {self.on_bar_time}")
 
                     elif self.pos < 0:
                         self.cover_lvt_orderids = self.cover(self.liq_price + 5, abs(self.pos))
-                        print(f"clearance time\non_bar, cover volume:{pos}\n{self.on_bar_time}")
+                        print(f"clearance time on_bar, cover volume:{pos} {self.on_bar_time}")
 
             else:
                 for buf_orderids in [
-                    self.buy_svt_orderids, 
-                    self.sell_svt_orderids, 
-                    self.short_svt_orderids, 
+                    self.buy_svt_orderids,
+                    self.sell_svt_orderids,
+                    self.short_svt_orderids,
                     self.cover_svt_orderids,
                     self.sell_lvt_orderids,
                     self.cover_lvt_orderids]:
@@ -264,8 +264,8 @@ class OscillatorHNBacktest(CtaTemplate):
                         self.cancel_order(vt_orderid)
                         print(f"on_xmin_bar, cancel {vt_orderid}")
 
-        self.sync_data()  # 防止出现宕机数据丢失
-        self.put_event()
+        # self.sync_data()  # 防止出现宕机数据丢失
+        # self.put_event()
 
     def on_stop_order(self, stop_order: StopOrder):
         """"""
@@ -348,6 +348,7 @@ class OscillatorHNBacktest(CtaTemplate):
         """"""
 
         on_order_time = order.datetime.time()
+
         print(f"\
             on_order\n\
             orderid:{order.orderid}\n\
@@ -412,7 +413,7 @@ class OscillatorHNBacktest(CtaTemplate):
                             self.cover_lvt_orderids = self.cover(self.liq_price + 5, abs(self.pos))
                             print(f"clearance time, on_order, cover volume:{pos}, on_bar_time:{self.on_bar_time}")
 
-        self.put_event()
+        # self.put_event()
 
     def on_trade(self, trade: TradeData):
         """"""
@@ -427,7 +428,7 @@ class OscillatorHNBacktest(CtaTemplate):
             trade_time:{trade.datetime}\
             ")
 
-        self.put_event()      
+        # self.put_event()      
 
 
 class XminBarGenerator(BarGenerator):
