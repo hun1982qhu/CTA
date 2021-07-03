@@ -268,7 +268,7 @@ class OscillatorHNBacktest(CtaTemplate):
 
     def on_stop_order(self, stop_order: StopOrder):
         """"""
-        on_stop_order_time = stop_order.datetime.time()
+        # on_stop_order_time = stop_order.datetime.time()
 
         # print(f"\
             # on_stop_order\n\
@@ -361,6 +361,13 @@ class OscillatorHNBacktest(CtaTemplate):
         if order.is_active():
             return
 
+        for buf_orderids in [
+            self.sell_lvt_orderids,
+            self.cover_lvt_orderids
+        ]:
+            if order.orderid in buf_orderids:
+                buf_orderids.remove(order.orderid)     
+        
         # not ACTIVE_STATUSES = set([Status.ALLTRADED, Status.CANCELLED, Status.REJECTED])
         if not (self.clearance_time <= self.on_bar_time <= self.liq_time):
 
