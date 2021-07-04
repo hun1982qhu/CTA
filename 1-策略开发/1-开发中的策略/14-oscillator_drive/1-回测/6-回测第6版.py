@@ -82,7 +82,7 @@ class OscillatorHNBacktest(CtaTemplate):
         self.am = ArrayManager()
 
         self.liq_price = 0
-        self.trading_size = 0
+        self.trading_size = 1
 
         self.on_bar_time = time1(0, 0)
         self.clearance_time = time1(14, 57)  # 清仓开始时间
@@ -131,45 +131,63 @@ class OscillatorHNBacktest(CtaTemplate):
 
     def on_bar(self, bar: BarData):
         """"""
-
+        # print(self.pos, bar.datetime.time())
         self.liq_price = bar.close_price
         self.on_bar_time = bar.datetime.time()
 
         self.bg.update_bar(bar)
 
         if (self.clearance_time <= self.on_bar_time <= self.liq_time):
-
-            if not self.buy_svt_orderids and not self.short_svt_orderids\
-                and not self.sell_svt_orderids and not self.cover_svt_orderids\
-                    and not self.sell_lvt_orderids and not self.cover_lvt_orderids:
                                       
-                    # pos = copy.deepcopy(self.pos)
-                    # print(f"clearance time, no previous commission, self.pos:{pos}")
+            # pos = copy.deepcopy(self.pos)
+            # print(f"clearance time, no previous commission, self.pos:{pos}")
 
-                    if self.pos > 0:
-                        self.sell_lvt_orderids = self.sell(self.liq_price - 5, abs(self.pos))
-                        # print(f"clearance time, on_bar, sell volume:{pos} {self.on_bar_time}")
+            if self.pos > 0:
+                if not self.buy_svt_orderids and not self.short_svt_orderids\
+                    and not self.sell_svt_orderids and not self.cover_svt_orderids and not self.sell_lvt_orderids:
+                    
+                    self.sell_lvt_orderids = self.sell(self.liq_price - 5, abs(self.pos))
+                    # print(f"clearance time, on_bar, {self.pos} {self.on_bar_time}")
 
-                    elif self.pos < 0:
-                        self.cover_lvt_orderids = self.cover(self.liq_price + 5, abs(self.pos))
-                        # print(f"clearance time on_bar, cover volume:{pos} {self.on_bar_time}")
-
-            else:
-                for buf_orderids in [
+                else:
+                    for buf_orderids in [
                     self.buy_svt_orderids,
                     self.sell_svt_orderids,
                     self.short_svt_orderids,
                     self.cover_svt_orderids,
-                    self.sell_lvt_orderids,
+                    self.sell_lvt_orderids]:
+
+                        if buf_orderids:
+                            for vt_orderid in buf_orderids:
+                                self.cancel_order(vt_orderid)
+                                # print(f"clearance time, on_bar, cancel {vt_orderid}")
+
+            elif self.pos < 0:
+                if not self.buy_svt_orderids and not self.short_svt_orderids\
+                    and not self.sell_svt_orderids and not self.cover_svt_orderids and not self.cover_lvt_orderids:
+                    
+                    self.cover_lvt_orderids = self.cover(self.liq_price + 5, abs(self.pos))
+                    # print(f"clearance time on_bar, cover volume:{pos} {self.on_bar_time}")
+                    # print(f"clearance time, on_bar, {self.pos} {self.on_bar_time}")
+
+                else:
+                    for buf_orderids in [
+                    self.buy_svt_orderids,
+                    self.sell_svt_orderids,
+                    self.short_svt_orderids,
+                    self.cover_svt_orderids,
                     self.cover_lvt_orderids]:
 
-                    if buf_orderids:
-                        for vt_orderid in buf_orderids:
-                            self.cancel_order(vt_orderid)
-                            # print(f"clearance time, on_bar, cancel {vt_orderid}")
+                        if buf_orderids:
+                            for vt_orderid in buf_orderids:
+                                self.cancel_order(vt_orderid)
+                                # print(f"clearance time, on_bar, cancel {vt_orderid}")
+
+            
 
     def on_xmin_bar(self, bar: BarData):
         """"""
+        
         am = self.am
         am.update_bar(bar)
         if not am.inited:
@@ -191,6 +209,7 @@ class OscillatorHNBacktest(CtaTemplate):
             if self.pos == 0:
 
                 self.trading_size = max(int(self.risk_level / self.atr_value), 1)
+                # print(f"trading_size:{self.trading_size}")
                 # print(f"risk_level:{self.risk_level}, atr_value:{self.atr_value}, trading_size:{self.trading_size}")
                 
                 # if self.trading_size >= 2:
@@ -201,7 +220,7 @@ class OscillatorHNBacktest(CtaTemplate):
 
                 if self.ultosc > self.buy_dis:
 
-                    if not self.buy_svt_orderids and not self.short_svt_orderids:   
+                    if not self.buy_svt_orderids and not self.short_svt_orderids:
                         self.buy_svt_orderids = self.buy(self.boll_up, self.trading_size, True)
                         # print(f"on_xmin_bar, buy_svt:{self.buy_svt_orderids}, volume:{self.trading_size}")
 
@@ -210,15 +229,17 @@ class OscillatorHNBacktest(CtaTemplate):
                             for vt_orderid in self.buy_svt_orderids:
                                 self.cancel_order(vt_orderid)
                                 # print(f"on_xmin_bar, cancel {vt_orderid}")
+                                # print(1, vt_orderid)
 
                         if self.short_svt_orderids:
                             for vt_orderid in self.short_svt_orderids:
                                 self.cancel_order(vt_orderid)
                                 # print(f"on_xmin_bar, cancel {vt_orderid}")
+                                # print(2, vt_orderid)
 
                 elif self.ultosc < self.short_dis:
 
-                    if not self.buy_svt_orderids and self.short_svt_orderids:
+                    if not self.buy_svt_orderids and not self.short_svt_orderids:
                         self.short_svt_orderids = self.short(self.boll_down, self.trading_size, True)
                         # print(f"on_xmin_bar, short_svt:{self.short_svt_orderids}, volume:{self.trading_size}")
 
@@ -227,11 +248,13 @@ class OscillatorHNBacktest(CtaTemplate):
                             for vt_orderid in self.buy_svt_orderids:
                                 self.cancel_order(vt_orderid)
                                 # print(f"on_xmin_bar, cancel {vt_orderid}")
+                                # print(3, vt_orderid)
 
                         if self.short_svt_orderids:
                             for vt_orderid in self.short_svt_orderids:
                                 self.cancel_order(vt_orderid)
                                 # print(f"on_xmin_bar, cancel {vt_orderid}")
+                                # print(4, vt_orderid)
 
             elif self.pos > 0:
                 self.intra_trade_high = max(self.intra_trade_high, bar.high_price)
@@ -327,19 +350,17 @@ class OscillatorHNBacktest(CtaTemplate):
 
                 if self.pos > 0:
                     if not self.buy_svt_orderids and not self.short_svt_orderids\
-                        and not self.sell_svt_orderids and not self.cover_svt_orderids\
-                            and not self.sell_lvt_orderids and not self.cover_lvt_orderids:
-                            
-                            self.sell_lvt_orderids = self.sell(self.liq_price - 5, abs(self.pos))
-                            # print(f"clearance time, on_stop_order, sell volume:{pos}, on_bar_time:{self.on_bar_time}")
+                        and not self.sell_svt_orderids and not self.cover_svt_orderids and not self.sell_lvt_orderids:
+                        
+                        self.sell_lvt_orderids = self.sell(self.liq_price - 5, abs(self.pos))
+                        # print(f"clearance time, on_stop_order, sell volume:{pos}, on_bar_time:{self.on_bar_time}")
 
                 elif self.pos < 0:
                     if not self.buy_svt_orderids and not self.short_svt_orderids\
-                        and not self.sell_svt_orderids and not self.cover_svt_orderids\
-                            and not self.sell_lvt_orderids and not self.cover_lvt_orderids:
+                        and not self.sell_svt_orderids and not self.cover_svt_orderids and not self.cover_lvt_orderids:
                             
-                            self.cover_lvt_orderids = self.cover(self.liq_price + 5, abs(self.pos))
-                            # print(f"clearance time, on_stop_order, cover volume:{pos}, on_bar_time:{self.on_bar_time}")
+                        self.cover_lvt_orderids = self.cover(self.liq_price + 5, abs(self.pos))
+                        # print(f"clearance time, on_stop_order, cover volume:{pos}, on_bar_time:{self.on_bar_time}")
 
         # self.put_event()
 
@@ -369,55 +390,25 @@ class OscillatorHNBacktest(CtaTemplate):
                 buf_orderids.remove(order.orderid)     
         
         # not ACTIVE_STATUSES = set([Status.ALLTRADED, Status.CANCELLED, Status.REJECTED])
-        if not (self.clearance_time <= self.on_bar_time <= self.liq_time):
+        if (self.clearance_time <= self.on_bar_time <= self.liq_time):
 
-            if order.status in [Status.CANCELLED, Status.REJECTED]:
-
-                if self.pos == 0:
-                    if self.ultosc > self.buy_dis:
-                        if not self.buy_svt_orderids and self.short_svt_orderids:
-                            self.buy_svt_orderids = self.buy(self.boll_up, self.trading_size, True)
-                            # print(f"on_order, buy_svt:{self.buy_svt_orderids}, volume:{self.trading_size}")
-
-                    elif self.ultosc < self.short_dis:
-                        if not self.buy_svt_orderids and self.short_svt_orderids:
-                            self.short_svt_orderids = self.short(self.boll_down, self.trading_size, True)
-                            # print(f"on_order, short_svt:{self.short_svt_orderids}, volume:{self.trading_size}")
-
-                elif self.pos > 0:
-                    # pos = copy.deepcopy(self.pos)
-
-                    if not self.sell_svt_orderids:
-                        self.sell_svt_orderids = self.sell(self.long_stop, abs(self.pos), True)
-                        # print(f"on_order, sell_svt:{self.sell_svt_orderids}, volume:{pos}")
-
-                else:
-                    # pos = copy.deepcopy(self.pos)
-
-                    if not self.cover_svt_orderids:
-                        self.cover_svt_orderids = self.cover(self.short_stop, abs(self.pos), True)
-                        # print(f"on_order, cover_svt:{self.cover_svt_orderids}, volume:{pos}")
-
-        else:
             if order.status in [Status.CANCELLED, Status.REJECTED]:
 
                 # pos = copy.deepcopy(self.pos)
 
                 if self.pos > 0:
                     if not self.buy_svt_orderids and not self.short_svt_orderids\
-                        and not self.sell_svt_orderids and not self.cover_svt_orderids\
-                            and not self.sell_lvt_orderids and not self.cover_lvt_orderids:
+                        and not self.sell_svt_orderids and not self.cover_svt_orderids and not self.sell_lvt_orderids:
                             
-                            self.sell_lvt_orderids = self.sell(self.liq_price - 5, abs(self.pos))
-                            # print(f"clearance time, on_order, sell volume:{pos}, on_bar_time:{self.on_bar_time}")
+                        self.sell_lvt_orderids = self.sell(self.liq_price - 5, abs(self.pos))
+                        # print(f"clearance time, on_order, sell volume:{pos}, on_bar_time:{self.on_bar_time}")
 
                 elif self.pos < 0:
                     if not self.buy_svt_orderids and not self.short_svt_orderids\
-                        and not self.sell_svt_orderids and not self.cover_svt_orderids\
-                            and not self.sell_lvt_orderids and not self.cover_lvt_orderids:
+                        and not self.sell_svt_orderids and not self.cover_svt_orderids and not self.cover_lvt_orderids:
                             
-                            self.cover_lvt_orderids = self.cover(self.liq_price + 5, abs(self.pos))
-                            # print(f"clearance time, on_order, cover volume:{pos}, on_bar_time:{self.on_bar_time}")
+                        self.cover_lvt_orderids = self.cover(self.liq_price + 5, abs(self.pos))
+                        # print(f"clearance time, on_order, cover volume:{pos}, on_bar_time:{self.on_bar_time}")
 
         # self.put_event()
 
