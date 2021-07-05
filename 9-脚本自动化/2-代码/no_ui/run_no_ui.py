@@ -9,8 +9,8 @@ from vnpy.trader.setting import SETTINGS
 from vnpy.trader.engine import MainEngine
 
 from vnpy.gateway.ctp import CtpGateway
-from vnpy.app.cta_strategy import CtaStrategyApp
-from vnpy.app.cta_strategy.base import EVENT_CTA_LOG
+from vnpy_ctastrategy import CtaStrategyApp
+from vnpy_ctastrategy.base import EVENT_CTA_LOG
 
 
 SETTINGS["log.active"] = True  # 是否记录日志
