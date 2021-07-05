@@ -1,29 +1,16 @@
 #%%
 import csv
 import copy
-from logging import currentframe
-from typing import Any, Callable
-import numpy as np
-import pandas as pd
+from typing import Callable
+
 from datetime import time as time1
 from datetime import datetime
-import time
-import talib
-import matplotlib.pyplot as plt
-import matplotlib as mpl
-from matplotlib import style
-
-mpl.rcParams['font.family'] = 'serif'  # 解决一些字体显示乱码的问题
-style.use('ggplot')
-import seaborn as sns
-sns.set()
 
 from vnpy_ctastrategy import CtaTemplate
 from vnpy_ctastrategy.base import StopOrder, StopOrderStatus
-from vnpy_ctastrategy.backtesting import BacktestingEngine, BacktestingMode, OptimizationSetting
 
 from vnpy.trader.object import TickData, BarData, OrderData, TradeData
-from vnpy.trader.constant import Interval, Offset, Direction, Exchange, Status
+from vnpy.trader.constant import Interval, Exchange, Status
 from vnpy.trader.utility import BarGenerator, ArrayManager
 
 
@@ -132,7 +119,7 @@ class OscillatorRealTrading(CtaTemplate):
 
         if (self.clearance_time <= self.on_bar_time <= self.liq_time):
 
-            self.write_log(f"clearance time {self.on_bar_time}")
+            self.write_log(f"clearance time, on_bar_time:{self.on_bar_time}")
 
             if not self.cta_engine.strategy_orderid_map[self.strategy_name]:
 
@@ -174,12 +161,12 @@ class OscillatorRealTrading(CtaTemplate):
 
             pos = copy.deepcopy(self.pos)
 
-            self.write_log(f"on_xmin_bar, self.pos:{pos} {self.on_bar_time}")
+            self.write_log(f"on_xmin_bar, self.pos:{pos}, on_bar_time:{self.on_bar_time}")
 
             if self.pos == 0:
 
                 self.trading_size = max(int(self.risk_level / self.atr_value), 1)
-                self.write_log(f"risk_level:{self.risk_level}, atr_value:{self.atr_value}, trading_size:{self.trading_size}")
+                self.write_log(f"on_xmin_bar, risk_level:{self.risk_level}, atr_value:{self.atr_value}, trading_size:{self.trading_size}")
                 
                 # if self.trading_size >= 2:
                 #     self.trading_size = 2
@@ -264,9 +251,9 @@ class OscillatorRealTrading(CtaTemplate):
         if stop_order.status == StopOrderStatus.WAITING:
             return
 
-        if not (self.clearance_time <= self.on_bar_time <= self.liq_time):
-
-            if stop_order.status == StopOrderStatus.CANCELLED:
+        if stop_order.status == StopOrderStatus.CANCELLED:
+        
+            if not (self.clearance_time <= self.on_bar_time <= self.liq_time):
 
                 if self.pos == 0:
                     if self.ultosc > self.buy_dis:
@@ -293,9 +280,7 @@ class OscillatorRealTrading(CtaTemplate):
                         self.cover(self.short_stop, abs(self.pos), True)
                         self.write_log(f"on_stop_order, cover_svt:{list(self.cta_engine.strategy_orderid_map[self.strategy_name])}, volume:{pos}")
 
-        else:
-            if stop_order.status == StopOrderStatus.CANCELLED:
-
+            else:
                 pos = copy.deepcopy(self.pos)
 
                 if self.pos > 0:
@@ -322,9 +307,9 @@ class OscillatorRealTrading(CtaTemplate):
             return
 
         # not ACTIVE_STATUSES = set([Status.ALLTRADED, Status.CANCELLED, Status.REJECTED])
-        if not (self.clearance_time <= self.on_bar_time <= self.liq_time):
-
-            if order.status in [Status.CANCELLED, Status.REJECTED]:
+        if order.status in [Status.CANCELLED, Status.REJECTED]:
+        
+            if not (self.clearance_time <= self.on_bar_time <= self.liq_time):
 
                 if self.pos == 0:
                     if self.ultosc > self.buy_dis:
@@ -351,9 +336,7 @@ class OscillatorRealTrading(CtaTemplate):
                         self.cover(self.short_stop, abs(self.pos), True)
                         self.write_log(f"on_order, cover_svt:{list(self.cta_engine.strategy_orderid_map[self.strategy_name])}, volume:{pos}")
 
-        else:
-            if order.status in [Status.CANCELLED, Status.REJECTED]:
-
+            else:
                 pos = copy.deepcopy(self.pos)
 
                 if self.pos > 0:
@@ -371,10 +354,12 @@ class OscillatorRealTrading(CtaTemplate):
     def on_trade(self, trade: TradeData):
         """"""
 
-        self.write_log(f"on_trade, {trade.vt_symbol} {trade.orderid} {trade.offset} {trade.direction} {trade.price} {trade.volume} {trade.datetime}, trade_time:{trade.datetime}")
+        self.write_log(f"on_trade, {trade.vt_symbol} {trade.orderid} {trade.offset} {trade.direction} {trade.price} {trade.volume}, trade_time:{trade.datetime}")
 
         subject = f"trade notice, trade_time:{trade.datetime}"
-        msg = f"trading record: {trade.vt_symbol}\n{trade.orderid}\n{trade.offset}\n{trade.direction}\n{trade.price}\n{trade.volume}\n{trade.datetime}, trade_time:{trade.datetime}"
+        
+        msg = f"trading record:{trade.vt_symbol}\n{trade.orderid}\n{trade.offset}\n{trade.direction}\n{trade.price}\n{trade.volume}\ntrade_time:{trade.datetime}"
+        
         self.cta_engine.main_engine.send_email(subject, msg)
 
         trade_record_dict = {

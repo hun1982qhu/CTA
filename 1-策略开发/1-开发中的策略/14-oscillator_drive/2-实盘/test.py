@@ -150,7 +150,11 @@ class OscillatorHNBacktest(CtaTemplate):
         # if self.on_bar_day == start_time:
         #     print(True)
 
-        print((not start_time))
+        print(self.on_bar_time)
+        print(self.liq_time)
+
+        if self.on_bar_time < self.liq_time:
+            print(True)
 
         
 
