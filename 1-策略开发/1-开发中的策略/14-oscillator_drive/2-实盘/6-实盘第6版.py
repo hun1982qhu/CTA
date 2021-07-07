@@ -26,7 +26,6 @@ class OscillatorRealTrading(CtaTemplate):
     sl_multiplier = 5.699999999999997
     dis_open = 10
     interval = 2
-    trading_size = 1
 
     boll_up = 0
     boll_down = 0
@@ -46,8 +45,7 @@ class OscillatorRealTrading(CtaTemplate):
         "risk_level",
         "sl_multiplier",
         "dis_open",
-        "interval",
-        "trading_size"
+        "interval"
     ]
 
     variables = [
@@ -71,6 +69,8 @@ class OscillatorRealTrading(CtaTemplate):
         self.am = ArrayManager()
 
         self.liq_price = 0
+
+        self.trading_size = 0
 
         self.on_bar_time = time1(0, 0)
         self.day_clearance_time = time1(14, 57)
