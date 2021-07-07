@@ -23,7 +23,7 @@ class OscillatorRealTrading(CtaTemplate):
     boll_dev = 4
     atr_window = 16
     risk_level = 50
-    sl_multiplier = 5.699999999999997
+    sl_multiplier = 5.699
     dis_open = 10
     interval = 2
 
