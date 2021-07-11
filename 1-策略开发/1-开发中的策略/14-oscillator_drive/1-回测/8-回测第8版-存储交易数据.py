@@ -4,8 +4,8 @@ import time
 import openpyxl
 
 from openpyxl.utils import get_column_letter
-from datetime import time as time1
 from pathlib import Path
+from datetime import time as time1
 from typing import Callable
 
 from vnpy_ctastrategy import CtaTemplate
