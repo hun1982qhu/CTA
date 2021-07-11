@@ -1,3 +1,0 @@
-vt_symbol,orderid,tradeid,offset,direction,price,volume,datetime,strategy,strategy_name
-vt_symbol,orderid,tradeid,offset,direction,price,volume,datetime,strategy,strategy_name
-rb2110.SHFE,3_45618798_1,,Offset.CLOSEYESTERDAY,Direction.LONG,5050,2,2021-06-16 22:06:12+08:00,,
