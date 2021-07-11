@@ -411,6 +411,8 @@ class OscillatorRealTrading(CtaTemplate):
 
         self.write_log("Trade Record Is Saved")
 
+        self.put_event()
+
 
 class XminBarGenerator(BarGenerator):
     def __init__(
