@@ -99,7 +99,7 @@ class OscillatorRealTrading(CtaTemplate):
             "strategy_name"
         ]
 
-        self.trade_record_wb = openpyxl.load_workbook(self.path / "trade_reord_table.xlsx")
+        self.trade_record_wb = openpyxl.load_workbook(self.path/"strategies"/"trade_reord_table.xlsx")
         self.trade_record_wb.iso_dates = True  # excel表格可以兼容datetime格式
 
         sheet_names = self.trade_record_wb.sheetnames
@@ -115,6 +115,8 @@ class OscillatorRealTrading(CtaTemplate):
                 self.trade_record_sheet[column+str(1)] = trade_record_fields[i-1]
 
         self.trade_record_sheet.freeze_panes = "A2"
+
+        self.trade_record_wb.save(self.path/"strategies"/"trade_reord_table.xlsx")
 
     def on_init(self):
         """"""
@@ -407,7 +409,7 @@ class OscillatorRealTrading(CtaTemplate):
             column = get_column_letter(i)
             self.trade_record_sheet[column+str(2)] = list(self.trade_record_dict.values())[i-1]
 
-        self.trade_record_wb.save(self.path / "trade_reord_table.xlsx")
+        self.trade_record_wb.save(self.path/"strategies"/"trade_reord_table.xlsx")
 
         self.write_log("Trade Record Is Saved")
 
