@@ -192,80 +192,51 @@ class OscillatorRealTrading(CtaTemplate):
 
             self.write_log(f"on_xmin_bar, self.pos:{pos}, on_bar_time:{self.on_bar_time}")
 
-            if self.pos == 0:
+            if not self.cta_engine.strategy_orderid_map[self.strategy_name]:
+                if self.pos == 0:
 
-                self.trading_size = max(int(self.risk_level / self.atr_value), 1)
-                self.write_log(f"on_xmin_bar, risk_level:{self.risk_level}, atr_value:{self.atr_value}, trading_size:{self.trading_size}")
-                
-                if self.trading_size >= 6:
-                    self.trading_size = 6
+                    self.trading_size = max(int(self.risk_level / self.atr_value), 1)
+                    self.write_log(f"on_xmin_bar, risk_level:{self.risk_level}, atr_value:{self.atr_value}, trading_size:{self.trading_size}")
+                    
+                    if self.trading_size > 6:
+                        self.trading_size = 6
 
-                self.intra_trade_high = bar.high_price
-                self.intra_trade_low = bar.low_price
+                    self.intra_trade_high = bar.high_price
+                    self.intra_trade_low = bar.low_price
 
-                if self.ultosc > self.buy_dis:
-
-                    if not self.cta_engine.strategy_orderid_map[self.strategy_name]:   
+                    if self.ultosc > self.buy_dis:
                         self.buy(self.boll_up, self.trading_size, True)
                         self.write_log(f"on_xmin_bar, buy_svt:{list(self.cta_engine.strategy_orderid_map[self.strategy_name])}, volume:{self.trading_size}")
 
-                    else:
-                        orders_buf = copy.deepcopy(self.cta_engine.strategy_orderid_map[self.strategy_name])
-
-                        if orders_buf:
-                            for vt_orderid in orders_buf:
-                                self.cancel_order(vt_orderid)
-                                self.write_log(f"on_xmin_bar, cancel {vt_orderid}")
-
-                elif self.ultosc < self.short_dis:
-
-                    if not self.cta_engine.strategy_orderid_map[self.strategy_name]:
+                    elif self.ultosc < self.short_dis:
                         self.short(self.boll_down, self.trading_size, True)
                         self.write_log(f"on_xmin_bar, short_svt:{list(self.cta_engine.strategy_orderid_map[self.strategy_name])}, volume:{self.trading_size}")
 
-                    else:
-                        orders_buf = copy.deepcopy(self.cta_engine.strategy_orderid_map[self.strategy_name])
+                elif self.pos > 0:
+                    self.intra_trade_high = max(self.intra_trade_high, bar.high_price)
+                    self.intra_trade_low = bar.low_price
 
-                        if orders_buf:
-                            for vt_orderid in orders_buf:
-                                self.cancel_order(vt_orderid)
-                                self.write_log(f"on_xmin_bar, cancel {vt_orderid}")
+                    self.long_stop = self.intra_trade_high - self.atr_value * self.sl_multiplier
 
-            elif self.pos > 0:
-                self.intra_trade_high = max(self.intra_trade_high, bar.high_price)
-                self.intra_trade_low = bar.low_price
-
-                self.long_stop = self.intra_trade_high - self.atr_value * self.sl_multiplier
-
-                if not self.cta_engine.strategy_orderid_map[self.strategy_name]:
                     self.sell(self.long_stop, abs(self.pos), True)
                     self.write_log(f"on_xmin_bar, sell_svt:{list(self.cta_engine.strategy_orderid_map[self.strategy_name])}, volume:{pos}")
 
                 else:
-                    orders_buf = copy.deepcopy(self.cta_engine.strategy_orderid_map[self.strategy_name])
+                    self.intra_trade_high = bar.high_price
+                    self.intra_trade_low = min(self.intra_trade_low, bar.low_price)
 
-                    if orders_buf:
-                        for vt_orderid in orders_buf:
-                            self.cancel_order(vt_orderid)
-                            self.write_log(f"on_xmin_bar, cancel {vt_orderid}")
+                    self.short_stop = self.intra_trade_low + self.atr_value * self.sl_multiplier
 
-            else:
-                self.intra_trade_high = bar.high_price
-                self.intra_trade_low = min(self.intra_trade_low, bar.low_price)
-
-                self.short_stop = self.intra_trade_low + self.atr_value * self.sl_multiplier
-
-                if not self.cta_engine.strategy_orderid_map[self.strategy_name]:
                     self.cover(self.short_stop, abs(self.pos), True)
                     self.write_log(f"on_xmin_bar, cover_svt:{list(self.cta_engine.strategy_orderid_map[self.strategy_name])}, volume:{pos}")
 
-                else:
-                    orders_buf = copy.deepcopy(self.cta_engine.strategy_orderid_map[self.strategy_name])
+            else:
+                orders_buf = copy.deepcopy(self.cta_engine.strategy_orderid_map[self.strategy_name])
 
-                    if orders_buf:
-                        for vt_orderid in orders_buf:
-                            self.cancel_order(vt_orderid)
-                            self.write_log(f"on_xmin_bar, cancel {vt_orderid}")
+                if orders_buf:
+                    for vt_orderid in orders_buf:
+                        self.cancel_order(vt_orderid)
+                        self.write_log(f"on_xmin_bar, cancel {vt_orderid}")
 
         self.sync_data()  # 防止出现宕机数据丢失
         self.put_event()
@@ -284,41 +255,39 @@ class OscillatorRealTrading(CtaTemplate):
         
             if not self.day_clearance:
 
-                if self.pos == 0:
-                    if self.ultosc > self.buy_dis:
-                        if not self.cta_engine.strategy_orderid_map[self.strategy_name]:
+                if not self.cta_engine.strategy_orderid_map[self.strategy_name]:
+
+                    if self.pos == 0:
+                        if self.ultosc > self.buy_dis:
                             self.buy(self.boll_up, self.trading_size, True)
                             self.write_log(f"on_stop_order, buy_svt:{list(self.cta_engine.strategy_orderid_map[self.strategy_name])}, volume:{self.trading_size}")
 
-                    elif self.ultosc < self.short_dis:
-                        if not self.cta_engine.strategy_orderid_map[self.strategy_name]:
+                        elif self.ultosc < self.short_dis:
                             self.short(self.boll_down, self.trading_size, True)
                             self.write_log(f"on_stop_order, short_svt:{list(self.cta_engine.strategy_orderid_map[self.strategy_name])}, volume:{self.trading_size}")
 
-                elif self.pos > 0:
-                    pos = copy.deepcopy(self.pos)
+                    elif self.pos > 0:
+                        pos = copy.deepcopy(self.pos)
 
-                    if not self.cta_engine.strategy_orderid_map[self.strategy_name]:
                         self.sell(self.long_stop, abs(self.pos), True)
                         self.write_log(f"on_stop_order, sell_svt:{list(self.cta_engine.strategy_orderid_map[self.strategy_name])}, volume:{pos}")
 
-                else:
-                    pos = copy.deepcopy(self.pos)
+                    else:
+                        pos = copy.deepcopy(self.pos)
 
-                    if not self.cta_engine.strategy_orderid_map[self.strategy_name]:  
                         self.cover(self.short_stop, abs(self.pos), True)
                         self.write_log(f"on_stop_order, cover_svt:{list(self.cta_engine.strategy_orderid_map[self.strategy_name])}, volume:{pos}")
 
             else:
                 pos = copy.deepcopy(self.pos)
 
-                if self.pos > 0:
-                    if not self.cta_engine.strategy_orderid_map[self.strategy_name]:
+                if not self.cta_engine.strategy_orderid_map[self.strategy_name]:
+
+                    if self.pos > 0:
                         self.sell(self.liq_price - 5, abs(self.pos))
                         self.write_log(f"clearance time, on_stop_order, sell volume:{pos}, on_bar_time:{self.on_bar_time}")
 
-                elif self.pos < 0:
-                    if not self.cta_engine.strategy_orderid_map[self.strategy_name]:
+                    elif self.pos < 0:
                         self.cover(self.liq_price + 5, abs(self.pos))
                         self.write_log(f"clearance time, on_stop_order, cover volume:{pos}, on_bar_time:{self.on_bar_time}")
 
@@ -340,41 +309,39 @@ class OscillatorRealTrading(CtaTemplate):
         
             if not self.day_clearance:
 
-                if self.pos == 0:
-                    if self.ultosc > self.buy_dis:
-                        if not self.cta_engine.strategy_orderid_map[self.strategy_name]:
+                if not self.cta_engine.strategy_orderid_map[self.strategy_name]:
+
+                    if self.pos == 0:
+                        if self.ultosc > self.buy_dis:
                             self.buy(self.boll_up, self.trading_size, True)
                             self.write_log(f"on_order, buy_svt:{list(self.cta_engine.strategy_orderid_map[self.strategy_name])}, volume:{self.trading_size}")
 
-                    elif self.ultosc < self.short_dis:
-                        if not self.cta_engine.strategy_orderid_map[self.strategy_name]:
+                        elif self.ultosc < self.short_dis:
                             self.short(self.boll_down, self.trading_size, True)
                             self.write_log(f"on_order, short_svt:{list(self.cta_engine.strategy_orderid_map[self.strategy_name])}, volume:{self.trading_size}")
 
-                elif self.pos > 0:
-                    pos = copy.deepcopy(self.pos)
+                    elif self.pos > 0:
+                        pos = copy.deepcopy(self.pos)
 
-                    if not self.cta_engine.strategy_orderid_map[self.strategy_name]:
                         self.sell(self.long_stop, abs(self.pos), True)
                         self.write_log(f"on_order, sell_svt:{list(self.cta_engine.strategy_orderid_map[self.strategy_name])}, volume:{pos}")
 
-                else:
-                    pos = copy.deepcopy(self.pos)
+                    else:
+                        pos = copy.deepcopy(self.pos)
 
-                    if not self.cta_engine.strategy_orderid_map[self.strategy_name]:
                         self.cover(self.short_stop, abs(self.pos), True)
                         self.write_log(f"on_order, cover_svt:{list(self.cta_engine.strategy_orderid_map[self.strategy_name])}, volume:{pos}")
 
             else:
                 pos = copy.deepcopy(self.pos)
 
-                if self.pos > 0:
-                    if not self.cta_engine.strategy_orderid_map[self.strategy_name]:
+                if not self.cta_engine.strategy_orderid_map[self.strategy_name]:
+
+                    if self.pos > 0:
                         self.sell(self.liq_price - 5, abs(self.pos))
                         self.write_log(f"clearance time, on_order, sell volume:{pos}, on_bar_time:{self.on_bar_time}")
 
-                elif self.pos < 0:
-                    if not self.cta_engine.strategy_orderid_map[self.strategy_name]:
+                    elif self.pos < 0:
                         self.cover(self.liq_price + 5, abs(self.pos))
                         self.write_log(f"clearance time, on_order, cover volume:{pos}, on_bar_time:{self.on_bar_time}")
 
