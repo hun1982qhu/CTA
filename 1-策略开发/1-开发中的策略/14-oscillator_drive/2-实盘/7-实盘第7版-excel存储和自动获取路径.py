@@ -391,9 +391,9 @@ class OscillatorRealTrading(CtaTemplate):
         self.cta_engine.main_engine.send_email(subject, msg)
 
         self.trade_record_dict = {
-            "vt_symbol": trade.vt_symbol,
-            "orderid": trade.orderid,
-            "tradeid": trade.tradeid,
+            "vt_symbol": str(trade.vt_symbol),
+            "orderid": str(trade.orderid),
+            "tradeid": str(trade.tradeid),
             "offset": str(trade.offset),
             "direction": str(trade.direction),
             "price": trade.price,
