@@ -396,11 +396,11 @@ class OscillatorRealTrading(CtaTemplate):
             "tradeid": str(trade.tradeid),
             "offset": str(trade.offset),
             "direction": str(trade.direction),
-            "price": trade.price,
-            "volume": trade.volume,
+            "price": str(trade.price),
+            "volume": str(trade.volume),
             "datetime": str(trade.datetime),
-            "strategy": self.cta_engine.strategies[self.strategy_name],
-            "strategy_name": self.strategy_name
+            "strategy": str(self.cta_engine.strategies[self.strategy_name]),
+            "strategy_name": str(self.strategy_name)
         }
 
         self.trade_record_sheet.insert_rows(2)
