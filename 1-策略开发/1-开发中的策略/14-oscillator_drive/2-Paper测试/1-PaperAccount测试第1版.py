@@ -1,6 +1,5 @@
 #%%
-import datetime
-import time
+import copy
 import openpyxl
 
 from openpyxl.utils import get_column_letter
@@ -119,6 +118,8 @@ class OscillatorHNBacktest(CtaTemplate):
 
         self.trade_record_sheet.freeze_panes = "A2"
 
+        self.trade_record_wb.save(self.path/"strategies"/"PaperAccount_reord_table.xlsx")
+
     def on_init(self):
         """"""
         self.write_log("策略初始化")
@@ -141,47 +142,47 @@ class OscillatorHNBacktest(CtaTemplate):
 
         self.liq_price = bar.close_price
         self.on_bar_time = bar.datetime.time()
-        self.on_bar_date = bar.datetime.date()
-
-        extreme_date = "2021-05-10"
-        extreme_date = time.strptime(extreme_date, "%Y-%m-%d")
-        year, month, day = extreme_date[:3]
-        extreme_date = datetime.date(year, month, day)
 
         self.day_clearance = (self.clearance_time <= self.on_bar_time <= self.liq_time)
 
-        if self.on_bar_date != extreme_date:
+        self.bg.update_bar(bar)
 
-            self.bg.update_bar(bar)
+        if self.day_clearance:
 
-            if self.day_clearance:
+            self.write_log(f"clearance time, on_bar_time:{self.on_bar_time}")
 
-                if not self.buy_svt_orderids and not self.short_svt_orderids\
-                    and not self.sell_svt_orderids and not self.cover_svt_orderids\
-                        and not self.sell_lvt_orderids and not self.cover_lvt_orderids:
+            if not self.buy_svt_orderids and not self.short_svt_orderids\
+                and not self.sell_svt_orderids and not self.cover_svt_orderids\
+                    and not self.sell_lvt_orderids and not self.cover_lvt_orderids:
 
-                        if self.pos > 0:
-                            self.sell_lvt_orderids = self.sell(self.liq_price - 5, abs(self.pos))
+                    pos = copy.deepcopy(self.pos)
+                    self.write_log(f"clearance time, no previous commission, self.pos:{pos}")
 
-                        elif self.pos < 0:
-                            self.cover_lvt_orderids = self.cover(self.liq_price + 5, abs(self.pos))
+                    if self.pos > 0:
+                        self.sell_lvt_orderids = self.sell(self.liq_price - 5, abs(self.pos))
+                        self.write_log(f"clearance time, on_bar, sell volume:{pos} {self.on_bar_time}")
 
-                else:
-                    for buf_orderids in [
-                        self.buy_svt_orderids,
-                        self.sell_svt_orderids,
-                        self.short_svt_orderids,
-                        self.cover_svt_orderids,
-                        self.sell_lvt_orderids,
-                        self.cover_lvt_orderids]:
+                    elif self.pos < 0:
+                        self.cover_lvt_orderids = self.cover(self.liq_price + 5, abs(self.pos))
+                        self.write_log(f"clearance time, on_bar, cover volume:{pos} {self.on_bar_time}")
 
-                        if buf_orderids:
-                            for vt_orderid in buf_orderids:
-                                self.cancel_order(vt_orderid)
+            else:
+                for buf_orderids in [
+                    self.buy_svt_orderids,
+                    self.sell_svt_orderids,
+                    self.short_svt_orderids,
+                    self.cover_svt_orderids,
+                    self.sell_lvt_orderids,
+                    self.cover_lvt_orderids]:
+
+                    if buf_orderids:
+                        for vt_orderid in buf_orderids:
+                            self.cancel_order(vt_orderid)
+                            self.write_log(f"clearance time, on_bar, cancel {vt_orderid}")
 
     def on_xmin_bar(self, bar: BarData):
         """"""
-        
+
         am = self.am
         am.update_bar(bar)
         if not am.inited:
@@ -196,15 +197,14 @@ class OscillatorHNBacktest(CtaTemplate):
 
         if not self.day_clearance:
 
-            # pos = copy.deepcopy(self.pos)
+            pos = copy.deepcopy(self.pos)
 
-            # print(f"on_xmin_bar, self.pos:{pos} on_bar_time:{self.on_bar_time}")
+            self.write_log(f"on_xmin_bar, self.pos:{pos}, on_bar_time:{self.on_bar_time}")
 
             if self.pos == 0:
 
                 self.trading_size = max(int(self.risk_level / self.atr_value), 1)
-                # print(f"trading_size:{self.trading_size}")
-                # print(f"risk_level:{self.risk_level}, atr_value:{self.atr_value}, trading_size:{self.trading_size}")
+                self.write_log(f"on_xmin_bar, risk_level:{self.risk_level}, atr_value:{self.atr_value}, trading_size:{self.trading_size}")
                 
                 if self.trading_size > 6:
                     self.trading_size = 6
@@ -216,24 +216,22 @@ class OscillatorHNBacktest(CtaTemplate):
                     
                     if self.ultosc > self.buy_dis:
                         self.buy_svt_orderids = self.buy(self.boll_up, self.trading_size, True)
-                        # print(f"on_xmin_bar, buy_svt:{self.buy_svt_orderids}, volume:{self.trading_size}")
+                        self.write_log(f"on_xmin_bar, buy_svt:{self.buy_svt_orderids}, volume:{self.trading_size}")
 
                     elif self.ultosc < self.short_dis:
                         self.short_svt_orderids = self.short(self.boll_down, self.trading_size, True)
-                        # print(f"on_xmin_bar, short_svt:{self.short_svt_orderids}, volume:{self.trading_size}")
+                        self.write_log(f"on_xmin_bar, short_svt:{self.short_svt_orderids}, volume:{self.trading_size}")
 
                 else:
                     if self.buy_svt_orderids:
                         for vt_orderid in self.buy_svt_orderids:
                             self.cancel_order(vt_orderid)
-                            # print(f"on_xmin_bar, cancel {vt_orderid}")
-                            # print(3, vt_orderid)
+                            self.write_log(f"on_xmin_bar, cancel {vt_orderid}")
 
                     if self.short_svt_orderids:
                         for vt_orderid in self.short_svt_orderids:
                             self.cancel_order(vt_orderid)
-                            # print(f"on_xmin_bar, cancel {vt_orderid}")
-                            # print(4, vt_orderid)
+                            self.write_log(f"on_xmin_bar, cancel {vt_orderid}")
 
             elif self.pos > 0:
                 self.intra_trade_high = max(self.intra_trade_high, bar.high_price)
@@ -243,12 +241,12 @@ class OscillatorHNBacktest(CtaTemplate):
 
                 if not self.sell_svt_orderids:
                     self.sell_svt_orderids = self.sell(self.long_stop, abs(self.pos), True)
-                    # print(f"on_xmin_bar, sell_svt:{self.sell_svt_orderids}, volume:{pos}")
+                    self.write_log(f"on_xmin_bar, sell_svt:{self.sell_svt_orderids}, volume:{pos}")
 
                 else:
                     for vt_orderid in self.sell_svt_orderids:
                         self.cancel_order(vt_orderid)
-                        # print(f"on_xmin_bar, cancel {vt_orderid}")
+                        self.write_log(f"on_xmin_bar, cancel {vt_orderid}")
 
             else:
                 self.intra_trade_high = bar.high_price
@@ -258,15 +256,15 @@ class OscillatorHNBacktest(CtaTemplate):
 
                 if not self.cover_svt_orderids:
                     self.cover_svt_orderids = self.cover(self.short_stop, abs(self.pos), True)
-                    # print(f"on_xmin_bar, cover_svt:{self.cover_svt_orderids}, volume:{pos}")
+                    self.write_log(f"on_xmin_bar, cover_svt:{self.cover_svt_orderids}, volume:{pos}")
 
                 else:
                     for vt_orderid in self.cover_svt_orderids:
                         self.cancel_order(vt_orderid)
-                        # print(f"on_xmin_bar, cancel {vt_orderid}")
+                        self.write_log(f"on_xmin_bar, cancel {vt_orderid}")
 
-        # self.sync_data()  # 防止出现宕机数据丢失
-        # self.put_event()
+        self.sync_data()  # 防止出现宕机数据丢失
+        self.put_event()
 
     def on_stop_order(self, stop_order: StopOrder):
         """"""
@@ -293,29 +291,30 @@ class OscillatorHNBacktest(CtaTemplate):
 
                         if self.ultosc > self.buy_dis:
                             self.buy_svt_orderids = self.buy(self.boll_up, self.trading_size, True)
-                            # print(f"on_stop_order, buy_svt:{self.buy_svt_orderids}, volume:{self.trading_size}")
+                            self.write_log(f"on_xmin_bar, buy_svt:{self.buy_svt_orderids}, volume:{self.trading_size}")
 
                         elif self.ultosc < self.short_dis:
                             self.short_svt_orderids = self.short(self.boll_down, self.trading_size, True)
-                            # print(f"on_stop_order, short_svt:{self.short_svt_orderids}, volume:{self.trading_size}")
+                            self.write_log(f"on_xmin_bar, short_svt:{self.short_svt_orderids}, volume:{self.trading_size}")
 
                 elif self.pos > 0:
-                    # pos = copy.deepcopy(self.pos)
+                    
+                    pos = copy.deepcopy(self.pos)
 
                     if not self.sell_svt_orderids:
                         self.sell_svt_orderids = self.sell(self.long_stop, abs(self.pos), True)
-                        # print(f"on_stop_order, sell_svt:{self.sell_svt_orderids}, volume:{pos}")
+                        self.write_log(f"on_stop_order, sell_svt:{self.sell_svt_orderids}, volume:{pos}")
 
                 else:
-                    # pos = copy.deepcopy(self.pos)
+
+                    pos = copy.deepcopy(self.pos)
 
                     if not self.cover_svt_orderids:  
                         self.cover_svt_orderids = self.cover(self.short_stop, abs(self.pos), True)
-                        # print(f"on_stop_order, cover_svt:{self.cover_svt_orderids}, volume:{pos}")
-
+                        self.write_log(f"on_stop_order, cover_svt:{self.cover_svt_orderids}, volume:{pos}")
             else:
 
-                # pos = copy.deepcopy(self.pos)
+                pos = copy.deepcopy(self.pos)
 
                 if not self.buy_svt_orderids and not self.short_svt_orderids\
                     and not self.sell_svt_orderids and not self.cover_svt_orderids\
@@ -323,13 +322,11 @@ class OscillatorHNBacktest(CtaTemplate):
                     
                         if self.pos > 0:
                             self.sell_lvt_orderids = self.sell(self.liq_price - 5, abs(self.pos))
-                            # print(f"clearance time, on_stop_order, sell volume:{pos}, on_bar_time:{self.on_bar_time}")
+                            self.write_log(f"clearance time, on_stop_order, sell volume:{pos}, on_bar_time:{self.on_bar_time}")
 
                         elif self.pos < 0:
                             self.cover_lvt_orderids = self.cover(self.liq_price + 5, abs(self.pos))
-                            # print(f"clearance time, on_stop_order, cover volume:{pos}, on_bar_time:{self.on_bar_time}")
-
-        # self.put_event()
+                            self.write_log(f"clearance time, on_stop_order, cover volume:{pos}, on_bar_time:{self.on_bar_time}")
 
     def on_order(self, order: OrderData):
         """"""
@@ -349,7 +346,7 @@ class OscillatorHNBacktest(CtaTemplate):
         
             if self.day_clearance:
 
-                # pos = copy.deepcopy(self.pos)
+                pos = copy.deepcopy(self.pos)
 
                 if not self.buy_svt_orderids and not self.short_svt_orderids\
                     and not self.sell_svt_orderids and not self.cover_svt_orderids\
@@ -357,14 +354,21 @@ class OscillatorHNBacktest(CtaTemplate):
                         
                         if self.pos > 0:
                             self.sell_lvt_orderids = self.sell(self.liq_price - 5, abs(self.pos))
-                            # print(f"clearance time, on_order, sell volume:{pos}, on_bar_time:{self.on_bar_time}")
+                            self.write_log(f"clearance time, on_order, sell volume:{pos}, on_bar_time:{self.on_bar_time}")
 
                         elif self.pos < 0:
                             self.cover_lvt_orderids = self.cover(self.liq_price + 5, abs(self.pos))
-                            # print(f"clearance time, on_order, cover volume:{pos}, on_bar_time:{self.on_bar_time}")
+                            self.write_log(f"clearance time, on_order, cover volume:{pos}, on_bar_time:{self.on_bar_time}")
 
     def on_trade(self, trade: TradeData):
         """"""
+
+        subject = f"trade notice, trade_time:{trade.datetime}"
+        msg = f"trading record:{trade.vt_symbol}\n{trade.orderid}\n{trade.offset}\n{trade.direction}\n{trade.price}\n{trade.volume}\ntrade_time:{trade.datetime}"
+        
+        self.write_log(msg)
+
+        self.cta_engine.main_engine.send_email(subject, msg)
 
         self.trade_record_dict = {
             "vt_symbol": trade.vt_symbol,
@@ -386,7 +390,9 @@ class OscillatorHNBacktest(CtaTemplate):
 
         self.trade_record_wb.save(self.path/"strategies"/"PaperAccount_reord_table.xlsx")
 
-        print("Trade Record Is Saved")
+        self.write_log("Trade Record Is Saved")
+
+        self.put_event()
 
 
 class XminBarGenerator(BarGenerator):
