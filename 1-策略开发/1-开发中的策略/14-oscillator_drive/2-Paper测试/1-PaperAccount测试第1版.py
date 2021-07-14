@@ -10,7 +10,6 @@ from typing import Callable
 
 from vnpy_ctastrategy import CtaTemplate
 from vnpy_ctastrategy.base import StopOrder, StopOrderStatus
-from vnpy_ctastrategy.backtesting import BacktestingEngine, BacktestingMode, OptimizationSetting
 
 from vnpy.trader.object import TickData, BarData, OrderData, TradeData
 from vnpy.trader.constant import Interval, Exchange, Status
@@ -22,13 +21,13 @@ class OscillatorHNBacktest(CtaTemplate):
     """"""
     author = "Huang Ning"
 
-    boll_window = 45
-    boll_dev = 2
-    atr_window = 2
+    boll_window = 3
+    boll_dev = 10
+    atr_window = 12
     risk_level = 50
-    sl_multiplier = 4.3
-    dis_open = 2
-    interval = 4
+    sl_multiplier = 6.29999
+    dis_open = 4
+    interval = 2
 
     boll_up = 0
     boll_down = 0
@@ -103,7 +102,7 @@ class OscillatorHNBacktest(CtaTemplate):
             "strategy"
         ]
 
-        self.trade_record_wb = openpyxl.load_workbook(self.path/"trade_reord_table.xlsx")
+        self.trade_record_wb = openpyxl.load_workbook(self.path/"strategies"/"PaperAccount_reord_table.xlsx")
         self.trade_record_wb.iso_dates = True
 
         sheet_names = self.trade_record_wb.sheetnames
@@ -385,7 +384,7 @@ class OscillatorHNBacktest(CtaTemplate):
             column = get_column_letter(i)
             self.trade_record_sheet[column+str(2)] = list(self.trade_record_dict.values())[i-1]
 
-        self.trade_record_wb.save(self.path/"trade_reord_table.xlsx")
+        self.trade_record_wb.save(self.path/"strategies"/"PaperAccount_reord_table.xlsx")
 
         print("Trade Record Is Saved")
 
@@ -477,46 +476,3 @@ class XminBarGenerator(BarGenerator):
 
         # Cache last bar object
         self.last_bar = bar
-
-
-#%%
-start1 = time.time()
-engine = BacktestingEngine()
-engine.set_parameters(
-    vt_symbol="rb888.SHFE",
-    interval="1m",
-    start=datetime.datetime(2021, 1, 1),
-    end=datetime.datetime(2021, 6, 30),
-    rate=0.0001,
-    slippage=0.2,
-    size=10,
-    pricetick=1,
-    capital=50000,
-    mode=BacktestingMode.BAR
-)
-engine.add_strategy(OscillatorHNBacktest, {})
-#%%
-start2 = time.time()
-engine.load_data()
-end2 = time.time()
-print(f"加载数据所需时长: {(end2-start2)} Seconds")
-#%%
-engine.run_backtesting()
-#%%
-engine.calculate_result()
-engine.calculate_statistics()
-# 待测试的代码
-end1 = time.time()
-print(f"单次回测运行时长: {(end1-start1)} Seconds")
-engine.show_chart()
-#%%
-# setting = OptimizationSetting()
-# setting.set_target("end_balance")
-# setting.add_parameter("bar_window_length", 1, 20, 1)
-# setting.add_parameter("cci_window", 3, 10, 1)
-# setting.add_parameter("fixed_size", 1, 1, 1)
-# setting.add_parameter("sell_multipliaer", 0.80, 0.99, 0.01)
-# setting.add_parameter("cover_multiplier", 1.01, 1.20, 0.01)
-# setting.add_parameter("pricetick_multiplier", 1, 5, 1)
-#%%
-# engine.run_optimization(setting, output=True)
